@@ -12,5 +12,8 @@ button[aria-pressed=true]{background:#096b60;color:white;border-color:#096b60}
 .unmeasured{border:1.5px solid #526865;box-sizing:border-box}#map-tip{padding-top:0;color:#526865}
 summary{padding:8px 12px;cursor:pointer;color:#096b60;font-weight:600;min-height:44px;box-sizing:border-box;display:list-item;align-content:center}
 #sources{padding:0 12px 8px}button:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #096b60;outline-offset:2px}
-.ap-label{color:#183b3c;font-weight:750;font-size:11px;text-align:center;white-space:nowrap;text-shadow:0 1px 2px white,0 -1px 2px white,1px 0 2px white,-1px 0 2px white;pointer-events:none}
+.signal-badge{box-sizing:border-box;min-width:100px;width:max-content;background:#fffffff5;border:2px solid;border-radius:10px;padding:4px 7px;box-shadow:0 2px 5px #183b3c24;color:#183b3c;line-height:1.25;pointer-events:none}
+.signal-name{display:block;font-size:10px;font-weight:600}.signal-value{display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;font-size:13px}
+.signal-bars{display:inline-flex;align-items:flex-end;gap:2px;height:16px}.signal-bars span{width:4px;border-radius:1px}
+.quality-marker{pointer-events:none}.signal-tooltip.leaflet-tooltip{background:none;border:0;box-shadow:none;padding:0}.signal-tooltip.leaflet-tooltip:before{display:none}
 .leaflet-popup-content{margin:12px;line-height:1.5;max-height:210px;overflow:auto}.leaflet-control-attribution{font-size:10px;background:#ffffffed!important}.leaflet-control-scale-line{background:#ffffffe6}

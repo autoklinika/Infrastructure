@@ -72,7 +72,6 @@ fun ReviewScreen(review: SurveyReview?, loading: Boolean, error: String?, import
 private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Boolean, onExport: () -> Unit) {
     var route by rememberSaveable(review.session.id) { mutableStateOf(true) }
     var expandedMap by rememberSaveable(review.session.id) { mutableStateOf(false) }
-    var focusOnMap by rememberSaveable(review.session.id) { mutableStateOf(false) }
     var selectedIndex by rememberSaveable(review.session.id) { mutableIntStateOf(0) }
     val selected = review.points.getOrNull(selectedIndex)
     var details by rememberSaveable(review.session.id) { mutableStateOf(false) }
@@ -103,7 +102,7 @@ private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Bo
             }
         }
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            SegmentedButton(selected = route, onClick = { route = true; focusOnMap = false; expandedMap = true }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Trasa GPS") }
+            SegmentedButton(selected = route, onClick = { route = true; expandedMap = true }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Trasa GPS") }
             SegmentedButton(selected = !route, onClick = { route = false }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Sygnał w czasie") }
         }
         WhiteCard(Modifier.bringIntoViewRequester(chartAnchor)) {
@@ -116,7 +115,7 @@ private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Bo
                     else -> {
                         if (!expandedMap) CoverageMapView(review.coverage, selected, Modifier.fillMaxWidth().height(450.dp))
                         else Spacer(Modifier.height(450.dp))
-                        TextButton(onClick = { focusOnMap = false; expandedMap = true }, modifier = Modifier.fillMaxWidth()) { Text("Otwórz dużą mapę") }
+                        TextButton(onClick = { expandedMap = true }, modifier = Modifier.fillMaxWidth()) { Text("Otwórz dużą mapę") }
                     }
                 }
             } else if (review.points.isEmpty()) Text("Ten pomiar nie zawiera jeszcze odczytów.", modifier = Modifier.padding(vertical = 24.dp))
@@ -138,12 +137,10 @@ private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Bo
             Text(signalLabel(selected.rssi, selected.connected), style = MaterialTheme.typography.titleLarge, color = signalColor(selected.rssi))
             Text(if (selected.latitude != null) "Pozycja zapisana · dokładność około ${selected.accuracy?.roundToInt()} m"
                 else "Brak dokładnej pozycji w tej chwili. Tego odczytu nie ma na trasie.", color = Muted, style = MaterialTheme.typography.bodySmall)
-            if (!route && selected.latitude != null) TextButton(onClick = { focusOnMap = true; expandedMap = true }) { Text("Pokaż to miejsce na trasie") }
+            if (!route && selected.latitude != null) TextButton(onClick = { expandedMap = true }) { Text("Pokaż to miejsce na trasie") }
             if (review.points.size > 1) {
                 Text("Wybierz chwilę pomiaru", style = MaterialTheme.typography.labelSmall, color = Muted)
-                Slider(value = selectedIndex.toFloat(), onValueChange = { selectedIndex = it.roundToInt().coerceIn(review.points.indices) },
-                    valueRange = 0f..review.points.lastIndex.toFloat(),
-                    modifier = Modifier.semantics { contentDescription = "Wybierz chwilę pomiaru, teraz ${durationLabel(selected.seconds)}" })
+                ReviewTimeSlider(review.points, selectedIndex) { selectedIndex = it }
             }
         }
         if (route) Text("GPS pokazuje położenie orientacyjnie. W budynku nie zastępuje planu pomieszczeń. Na trasę przyjmujemy tylko prawidłowe pozycje z dokładnością do ${surveyJson.decodeFromString<SurveyConfig>(review.session.configuration_snapshot_json).accuracy_exclusion_m.toInt()} m.",
@@ -188,14 +185,40 @@ private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Bo
                 }
             }
             HorizontalDivider(color = Muted.copy(alpha = .15f))
-            if (review.coverage.cells.isEmpty()) Column(Modifier.fillMaxSize().padding(24.dp),
+            if (review.coverage.cells.isEmpty()) Column(Modifier.fillMaxWidth().weight(1f).padding(24.dp),
                 verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Brak pomiarów do pokazania na mapie", style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(12.dp))
                 Text("W tym zapisie nie ma odczytów AP z dokładną pozycją GPS. Sygnał Wi-Fi możesz sprawdzić na wykresie.", color = Muted)
-            } else CoverageMapView(review.coverage, selected.takeIf { focusOnMap }, Modifier.fillMaxWidth().weight(1f))
+            } else CoverageMapView(review.coverage, selected, Modifier.fillMaxWidth().weight(1f), followSelection = true)
+            if (selected != null) Surface(color = Color.White, shadowElevation = 4.dp) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("Czas pomiaru", style = MaterialTheme.typography.labelMedium, color = Muted)
+                        Text("${durationLabel(selected.seconds)} / ${durationLabel(review.durationSeconds)}",
+                            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    }
+                    ReviewTimeSlider(review.points, selectedIndex) { selectedIndex = it }
+                    Text("Wi-Fi telefonu: ${signalLabel(selected.rssi, selected.connected)}" +
+                        (selected.rssi?.let { " · $it dBm" } ?: ""),
+                        style = MaterialTheme.typography.bodySmall, color = signalColor(selected.rssi))
+                    Text(if (selected.latitude != null) "Wybrana pozycja · dokładność około ${selected.accuracy?.roundToInt()} m"
+                        else "Brak dokładnej pozycji w tej chwili", style = MaterialTheme.typography.bodySmall, color = Muted)
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun ReviewTimeSlider(points: List<ReviewPoint>, selectedIndex: Int, onSelect: (Int) -> Unit) {
+    val selected = points.getOrNull(selectedIndex) ?: return
+    Slider(value = selectedIndex.toFloat(), onValueChange = { onSelect(it.roundToInt().coerceIn(points.indices)) },
+        valueRange = 0f..points.lastIndex.coerceAtLeast(1).toFloat(), enabled = points.size > 1,
+        modifier = Modifier.fillMaxWidth().semantics {
+            contentDescription = "Wybierz chwilę pomiaru, teraz ${durationLabel(selected.seconds)}"
+        })
 }
 
 @Composable

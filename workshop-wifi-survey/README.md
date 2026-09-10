@@ -55,6 +55,7 @@ może wymagać tego samego klucza. Nie odinstalowuj aplikacji z niepobranymi ses
 - Automatycznie ustawione 1000 ms zapisu i 2500 ms limitu wieku GPS; bez pól technicznych.
 - „Moje pomiary” otwiera mapę OpenStreetMap z wyborem sieci/AP; obok jest wykres sygnału.
 - „Trasa GPS” jednym dotknięciem otwiera mapę na cały ekran; „Wróć” przywraca wynik.
+- Suwak na pełnej mapie śledzi czas, pozycję i sygnał telefonu; etykiety AP pokazują słupki i dBm.
 - Kolor pola opisuje sygnał osiągnięty w co najmniej 90% jego odczytów. Puste pola pozostają puste.
 - Sąsiednie AP są zbierane z broadcastów Androida, z własnymi czasami obserwacji i joinami GPS.
 - Otwieranie wcześniejszych ZIP przez systemowy wybór pliku, po kontroli checksum i powiązań.

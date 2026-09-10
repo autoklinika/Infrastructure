@@ -19,6 +19,23 @@ objaśnienie progów, jakości danych i wybór źródła. Przegląd bez dokładn
 pokazuje czytelny komunikat zamiast pustego podkładu. Obliczenia i surowy zapis
 pozostają takie same jak w 0.3.0.
 
+Od 0.3.2 pełna mapa ma stale widoczny suwak „Czas pomiaru”, wybraną chwilę,
+czas całkowity, sygnał połączenia telefonu i informację o GPS. Wybór jest wspólny
+z małą mapą i wykresem, więc zamknięcie okna go zachowuje. Suwak wybiera zapisane
+odczyty w kolejności, od pierwszego do ostatniego; długie sesje korzystają z tego
+samego skrótu co wykres. Przy braku GPS znacznik znika, a komunikat wyjaśnia brak
+pozycji. Przesuwanie suwaka utrzymuje wybraną pozycję w widocznym obszarze mapy.
+
+Zmierzonym polom towarzyszą etykiety AP, kolorowe słupki i wartości dBm z tego
+samego percentyla co kolor pola. Wartość pola nadal podsumowuje całą sesję.
+Znacznik „Telefon” pokazuje osobno czas i rzeczywisty odczyt połączenia w wybranej
+chwili. Liczba słupków: 4 przy ≥−55 dBm, 3 przy ≥−67, 2 przy ≥−75, 1 poniżej;
+brak odczytu/połączenia nie otrzymuje aktywnych słupków. Są to poziomy siły sygnału,
+nie wynik testu prędkości. Etykiety pól wymagają ≥3 obserwacji; 1–2 pozostają kółkiem.
+Na widoku jest maksymalnie 80 niekolidujących etykiet pól. Powiększenie mapy
+ujawnia kolejne, a wartości każdego pola pozostają dostępne po dotknięciu.
+Przesunięta dla czytelności etykieta jest połączona linią ze środkiem swojego pola.
+
 Nowe sesje zapisują połączenie telefonu i skany widocznych AP. Starsze sesje
 pokazują wyłącznie połączone AP. Wykrycie AP nie oznacza połączenia, dostępu do
 internetu ani spełnienia wymagań przepustowości. Oddzielne przyciski źródeł
@@ -117,6 +134,12 @@ rysują się lokalnie, z komunikatem o braku mapy. Nie gwarantujemy map offline.
 - [Android — utrzymywanie urządzenia aktywnego](https://developer.android.com/develop/background-work/background-tasks/awake)
 
 ## Weryfikacja wydania
+
+W 0.3.2 na Flip6 sprawdzono suwak pełnej mapy na początku, w środku i na końcu
+rzeczywistego zapisu; aktualizację znacznika i dBm, usunięcie znacznika po wyborze
+chwili bez GPS, rozdzielenie etykiet telefonu/AP i zachowanie czasu po powrocie
+do wykresu. Przeszły istniejące 54 testy Androida, 29 testów Python, lint i kontrola
+składni JavaScript. Nie zmieniano procesu zbierania danych ani eksportu.
 
 W 0.3.1 na fizycznym Flip6 sprawdzono otwarcie pełnego ekranu jednym dotknięciem
 „Trasa GPS”, wypełnienie okna przez mapę, wybór AP, rozwijanie objaśnień oraz powrót

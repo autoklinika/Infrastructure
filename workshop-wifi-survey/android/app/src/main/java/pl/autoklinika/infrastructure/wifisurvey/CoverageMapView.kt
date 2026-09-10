@@ -14,14 +14,18 @@ import java.io.ByteArrayInputStream
 /** Packaged map code, local overlays, no JavaScript bridge. Only viewport tiles leave the device. */
 @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
 @Composable
-fun CoverageMapView(coverage: CoverageMap, selected: ReviewPoint?, modifier: Modifier = Modifier) {
+fun CoverageMapView(coverage: CoverageMap, selected: ReviewPoint?, modifier: Modifier = Modifier, followSelection: Boolean = false) {
     val context = LocalContext.current
     val html = remember(coverage) {
         context.assets.open("map/index.html").bufferedReader().use { it.readText() }
             .replace("__SURVEY_DATA__", mapSafeJson(surveyJson.encodeToString(coverage)))
     }
     val focus = selected?.takeIf { it.latitude != null && it.longitude != null }?.let {
-        buildJsonObject { put("latitude", it.latitude); put("longitude", it.longitude); put("accuracy", it.accuracy) }.toString()
+        buildJsonObject {
+            put("latitude", it.latitude); put("longitude", it.longitude); put("accuracy", it.accuracy)
+            put("seconds", it.seconds); put("follow", followSelection)
+            put("rssi", it.rssi); put("connected", it.connected); put("time", durationLabel(it.seconds))
+        }.toString()
     } ?: "null"
     val currentFocus by rememberUpdatedState(focus)
     AndroidView(modifier = modifier, factory = { ctx ->
