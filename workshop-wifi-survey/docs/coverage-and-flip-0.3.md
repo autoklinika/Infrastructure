@@ -11,6 +11,14 @@ Wykres czasu pozostaje pod sąsiednią zakładką. Wybrana chwila zaznacza się 
 wraz z kołem raportowanej dokładności, jeśli miała poprawną pozycję.
 Opcja „Wszystkie sieci” pozwala obejrzeć także AP nadające pod różnymi SSID.
 
+Od wersji 0.3.1 przycisk „Trasa GPS” od razu otwiera duże okno mapy na cały ekran.
+„Pokaż to miejsce na trasie” pod wykresem otwiera to samo okno z zaznaczoną chwilą;
+zamknięcie przyciskiem „Wróć” albo systemowym gestem wraca do wykresu.
+Na mapie od razu widać wybór sieci/AP i prostą legendę. „Jak czytać mapę” rozwija
+objaśnienie progów, jakości danych i wybór źródła. Przegląd bez dokładnych pozycji
+pokazuje czytelny komunikat zamiast pustego podkładu. Obliczenia i surowy zapis
+pozostają takie same jak w 0.3.0.
+
 Nowe sesje zapisują połączenie telefonu i skany widocznych AP. Starsze sesje
 pokazują wyłącznie połączone AP. Wykrycie AP nie oznacza połączenia, dostępu do
 internetu ani spełnienia wymagań przepustowości. Oddzielne przyciski źródeł
@@ -109,6 +117,11 @@ rysują się lokalnie, z komunikatem o braku mapy. Nie gwarantujemy map offline.
 - [Android — utrzymywanie urządzenia aktywnego](https://developer.android.com/develop/background-work/background-tasks/awake)
 
 ## Weryfikacja wydania
+
+W 0.3.1 na fizycznym Flip6 sprawdzono otwarcie pełnego ekranu jednym dotknięciem
+„Trasa GPS”, wypełnienie okna przez mapę, wybór AP, rozwijanie objaśnień oraz powrót
+przyciskiem „Wróć”. Sprawdzono też otwarcie zaznaczonej chwili z wykresu i powrót
+systemowym Wstecz z zachowaniem wybranej chwili. Zrzuty pozostały prywatne.
 
 54 testy JVM/Robolectric i 29 testów Python przeszły. Kontrole obejmują zachowanie
 danych podczas migracji 1→3 i 2→3, recovery po ostatnim skanie, round-trip ZIP,

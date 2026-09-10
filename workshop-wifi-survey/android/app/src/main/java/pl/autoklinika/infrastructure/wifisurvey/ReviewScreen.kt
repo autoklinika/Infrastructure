@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +31,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import androidx.compose.foundation.background
 import kotlin.math.abs
 import kotlin.math.max
@@ -69,6 +72,7 @@ fun ReviewScreen(review: SurveyReview?, loading: Boolean, error: String?, import
 private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Boolean, onExport: () -> Unit) {
     var route by rememberSaveable(review.session.id) { mutableStateOf(true) }
     var expandedMap by rememberSaveable(review.session.id) { mutableStateOf(false) }
+    var focusOnMap by rememberSaveable(review.session.id) { mutableStateOf(false) }
     var selectedIndex by rememberSaveable(review.session.id) { mutableIntStateOf(0) }
     val selected = review.points.getOrNull(selectedIndex)
     var details by rememberSaveable(review.session.id) { mutableStateOf(false) }
@@ -99,7 +103,7 @@ private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Bo
             }
         }
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            SegmentedButton(selected = route, onClick = { route = true }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Mapa zasięgu") }
+            SegmentedButton(selected = route, onClick = { route = true; focusOnMap = false; expandedMap = true }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Trasa GPS") }
             SegmentedButton(selected = !route, onClick = { route = false }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Sygnał w czasie") }
         }
         WhiteCard(Modifier.bringIntoViewRequester(chartAnchor)) {
@@ -110,8 +114,9 @@ private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Bo
                 when {
                     review.coverage.cells.isEmpty() -> Text("Brak dokładnych pomiarów GPS z rozpoznanym AP. Odczyty Wi-Fi są dostępne na wykresie.", modifier = Modifier.padding(vertical = 24.dp), color = Muted)
                     else -> {
-                        CoverageMapView(review.coverage, selected, Modifier.fillMaxWidth().height(450.dp))
-                        TextButton(onClick = { expandedMap = true }, modifier = Modifier.fillMaxWidth()) { Text("Powiększ mapę na cały ekran") }
+                        if (!expandedMap) CoverageMapView(review.coverage, selected, Modifier.fillMaxWidth().height(450.dp))
+                        else Spacer(Modifier.height(450.dp))
+                        TextButton(onClick = { focusOnMap = false; expandedMap = true }, modifier = Modifier.fillMaxWidth()) { Text("Otwórz dużą mapę") }
                     }
                 }
             } else if (review.points.isEmpty()) Text("Ten pomiar nie zawiera jeszcze odczytów.", modifier = Modifier.padding(vertical = 24.dp))
@@ -133,7 +138,7 @@ private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Bo
             Text(signalLabel(selected.rssi, selected.connected), style = MaterialTheme.typography.titleLarge, color = signalColor(selected.rssi))
             Text(if (selected.latitude != null) "Pozycja zapisana · dokładność około ${selected.accuracy?.roundToInt()} m"
                 else "Brak dokładnej pozycji w tej chwili. Tego odczytu nie ma na trasie.", color = Muted, style = MaterialTheme.typography.bodySmall)
-            if (!route && selected.latitude != null) TextButton(onClick = { route = true; showChart() }) { Text("Pokaż to miejsce na trasie") }
+            if (!route && selected.latitude != null) TextButton(onClick = { focusOnMap = true; expandedMap = true }) { Text("Pokaż to miejsce na trasie") }
             if (review.points.size > 1) {
                 Text("Wybierz chwilę pomiaru", style = MaterialTheme.typography.labelSmall, color = Muted)
                 Slider(value = selectedIndex.toFloat(), onValueChange = { selectedIndex = it.roundToInt().coerceIn(review.points.indices) },
@@ -163,10 +168,32 @@ private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Bo
         }
         Spacer(Modifier.height(20.dp))
     }
-    if (expandedMap) Dialog(onDismissRequest = { expandedMap = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    if (expandedMap) Dialog(onDismissRequest = { expandedMap = false },
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
+        SideEffect {
+            dialogWindow?.let { window ->
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = true
+                    isAppearanceLightNavigationBars = true
+                }
+            }
+        }
         Column(Modifier.fillMaxSize().background(Paper).safeDrawingPadding()) {
-            TextButton(onClick = { expandedMap = false }) { Text("←  Wróć do wyniku") }
-            CoverageMapView(review.coverage, selected, Modifier.fillMaxWidth().weight(1f))
+            Surface(color = Color.White) {
+                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    TextButton(onClick = { expandedMap = false }) { Text("← Wróć") }
+                    Text("Trasa GPS", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            HorizontalDivider(color = Muted.copy(alpha = .15f))
+            if (review.coverage.cells.isEmpty()) Column(Modifier.fillMaxSize().padding(24.dp),
+                verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Brak pomiarów do pokazania na mapie", style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(12.dp))
+                Text("W tym zapisie nie ma odczytów AP z dokładną pozycją GPS. Sygnał Wi-Fi możesz sprawdzić na wykresie.", color = Muted)
+            } else CoverageMapView(review.coverage, selected.takeIf { focusOnMap }, Modifier.fillMaxWidth().weight(1f))
         }
     }
 }

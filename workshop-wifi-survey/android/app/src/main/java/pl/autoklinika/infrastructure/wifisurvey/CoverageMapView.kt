@@ -26,6 +26,8 @@ fun CoverageMapView(coverage: CoverageMap, selected: ReviewPoint?, modifier: Mod
     val currentFocus by rememberUpdatedState(focus)
     AndroidView(modifier = modifier, factory = { ctx ->
         WebView(ctx).apply {
+            layoutParams = android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
             settings.javaScriptEnabled = true
             settings.allowFileAccess = false; settings.allowContentAccess = false
             settings.domStorageEnabled = false; settings.cacheMode = WebSettings.LOAD_DEFAULT

@@ -4,12 +4,17 @@
 <link rel="stylesheet" href="leaflet.css"><link rel="stylesheet" href="survey-map.css">
 </head><body>
 <div id="controls"><label id="networks">Sieć <select id="network" aria-label="Wybierz sieć Wi-Fi"></select></label>
-<div id="sources" class="chips"></div><div id="aps" class="chips" aria-label="Wybierz punkt dostępowy"></div></div>
+<div id="aps" class="chips" aria-label="Wybierz punkt dostępowy"></div></div>
 <div id="map" role="region" aria-label="Mapa pomiarów Wi-Fi OpenStreetMap"></div>
+<footer id="map-summary">
 <div id="tile-status" role="status" hidden>Podkład jest niedostępny. Sprawdź internet. Pomiary nadal są widoczne.</div>
 <div id="caption" role="status"></div>
-<div id="legend"><span><i class="good"></i>Dobry ≥ −67</span><span><i class="fair"></i>Słabszy</span><span><i class="weak"></i>Słaby &lt; −75 dBm</span></div>
+<div id="legend"><span><i class="good"></i>Dobry</span><span><i class="fair"></i>Słabszy</span><span><i class="weak"></i>Słaby</span><span><i class="unmeasured"></i>Za mało danych</span></div>
+<div id="map-tip">Dotknij pola na mapie, aby porównać AP.</div>
+<details id="map-details"><summary>Jak czytać mapę</summary>
 <div id="hint">Przygotowuję mapę…</div>
+<div id="sources" class="chips" aria-label="Źródło pomiaru"></div>
+</details></footer>
 <script id="survey-data" type="application/json">__SURVEY_DATA__</script>
 <script src="leaflet.js"></script><script src="survey-map.js"></script>
 </body></html>

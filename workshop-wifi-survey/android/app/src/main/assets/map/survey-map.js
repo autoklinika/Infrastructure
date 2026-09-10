@@ -66,10 +66,12 @@ function draw(fit){
     if(selectedAp===null&&survey.cells.length<=150)
       L.marker(center,{interactive:false,icon:L.divIcon({className:'ap-label',html:apById.get(best.ap).label,iconSize:[48,16],iconAnchor:[24,8]})}).addTo(layer);
   });
-  const which=selectedAp?apById.get(selectedAp).label:'Najlepszy zmierzony AP w każdym polu';
-  document.getElementById('caption').textContent=which+' · '+fields+' pól'+(tentative?' · '+tentative+' miejsc z 1–2 odczytami':'');
+  const which=selectedAp?apById.get(selectedAp).label:'Najlepszy sygnał z AP';
+  document.getElementById('caption').textContent=which+' · zbadane pola: '+fields+(tentative?' · wstępne: '+tentative:'');
+  document.getElementById('map-tip').textContent=(source==='CONNECTED_LINK'?'Zapis połączenia telefonu. ':'')+'Dotknij pola, aby zobaczyć wynik. Puste miejsce: brak pomiarów.';
   document.getElementById('hint').textContent=(source==='CONNECTED_LINK'?'Zapis połączonego AP. ':'Skan widocznych AP. ')+
-    'Kolor: sygnał osiągnięty w ≥90% odczytów. Pola '+survey.cellMeters+' × '+survey.cellMeters+' m, minimum 3 odczyty. Kółko: za mało danych. Puste: nie zbadano.';
+    'Kolor: sygnał osiągnięty w ≥90% odczytów. Dobry: ≥ −67 dBm. Słabszy: od −75 do −67 dBm. Słaby: < −75 dBm. '+
+    'Pola '+survey.cellMeters+' × '+survey.cellMeters+' m, minimum 3 odczyty. Kółko: za mało danych. Puste: nie zbadano. GPS w budynku nie zastępuje planu pomieszczeń.';
   if(fit&&bounds.length)map.fitBounds(bounds,{padding:[25,25],maxZoom:19,animate:false});
   else if(!bounds.length){map.setView([0,0],2);document.getElementById('hint').textContent='Brak dokładnych pomiarów GPS dla tej sieci.'}
 }
