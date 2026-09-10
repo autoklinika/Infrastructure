@@ -1,0 +1,555 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "9b254c2542d19e29e968b85fa02433cf",
+    "entities": [
+      {
+        "tableName": "sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `schema_version` INTEGER NOT NULL, `name` TEXT NOT NULL, `mode` TEXT NOT NULL, `route_profile` TEXT, `started_at_utc` TEXT NOT NULL, `ended_at_utc` TEXT, `started_elapsed_ns` INTEGER NOT NULL, `ended_elapsed_ns` INTEGER, `app_version_name` TEXT NOT NULL, `app_version_code` INTEGER NOT NULL, `git_commit` TEXT, `device_manufacturer` TEXT NOT NULL, `device_model` TEXT NOT NULL, `android_release` TEXT NOT NULL, `android_sdk` INTEGER NOT NULL, `ssid_filter` TEXT, `notes` TEXT, `configuration_snapshot_json` TEXT NOT NULL, `status` TEXT NOT NULL, `export_status` TEXT NOT NULL DEFAULT 'NOT_EXPORTED', `export_uri` TEXT, `export_name` TEXT, `export_error` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "schema_version",
+            "columnName": "schema_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "route_profile",
+            "columnName": "route_profile",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "started_at_utc",
+            "columnName": "started_at_utc",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ended_at_utc",
+            "columnName": "ended_at_utc",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "started_elapsed_ns",
+            "columnName": "started_elapsed_ns",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ended_elapsed_ns",
+            "columnName": "ended_elapsed_ns",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "app_version_name",
+            "columnName": "app_version_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "app_version_code",
+            "columnName": "app_version_code",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "git_commit",
+            "columnName": "git_commit",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "device_manufacturer",
+            "columnName": "device_manufacturer",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "device_model",
+            "columnName": "device_model",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "android_release",
+            "columnName": "android_release",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "android_sdk",
+            "columnName": "android_sdk",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ssid_filter",
+            "columnName": "ssid_filter",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "configuration_snapshot_json",
+            "columnName": "configuration_snapshot_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "export_status",
+            "columnName": "export_status",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'NOT_EXPORTED'"
+          },
+          {
+            "fieldPath": "export_uri",
+            "columnName": "export_uri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "export_name",
+            "columnName": "export_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "export_error",
+            "columnName": "export_error",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "locations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `session_id` TEXT NOT NULL, `sequence_no` INTEGER NOT NULL, `timestamp_utc` TEXT NOT NULL, `timestamp_elapsed_ns` INTEGER NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `accuracy_m` REAL, `altitude_m` REAL, `vertical_accuracy_m` REAL, `bearing_deg` REAL, `bearing_accuracy_deg` REAL, `speed_mps` REAL, `speed_accuracy_mps` REAL, `provider` TEXT, `is_mock_if_available` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`session_id`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "session_id",
+            "columnName": "session_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sequence_no",
+            "columnName": "sequence_no",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp_utc",
+            "columnName": "timestamp_utc",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp_elapsed_ns",
+            "columnName": "timestamp_elapsed_ns",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accuracy_m",
+            "columnName": "accuracy_m",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "altitude_m",
+            "columnName": "altitude_m",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "vertical_accuracy_m",
+            "columnName": "vertical_accuracy_m",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "bearing_deg",
+            "columnName": "bearing_deg",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "bearing_accuracy_deg",
+            "columnName": "bearing_accuracy_deg",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "speed_mps",
+            "columnName": "speed_mps",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "speed_accuracy_mps",
+            "columnName": "speed_accuracy_mps",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "provider",
+            "columnName": "provider",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "is_mock_if_available",
+            "columnName": "is_mock_if_available",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_locations_session_id_sequence_no",
+            "unique": true,
+            "columnNames": [
+              "session_id",
+              "sequence_no"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_locations_session_id_sequence_no` ON `${TABLE_NAME}` (`session_id`, `sequence_no`)"
+          },
+          {
+            "name": "index_locations_session_id_timestamp_elapsed_ns",
+            "unique": false,
+            "columnNames": [
+              "session_id",
+              "timestamp_elapsed_ns"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_locations_session_id_timestamp_elapsed_ns` ON `${TABLE_NAME}` (`session_id`, `timestamp_elapsed_ns`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "sessions",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "session_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "connected_wifi",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `session_id` TEXT NOT NULL, `sequence_no` INTEGER NOT NULL, `timestamp_utc` TEXT NOT NULL, `timestamp_elapsed_ns` INTEGER NOT NULL, `source` TEXT NOT NULL, `ssid` TEXT, `bssid` TEXT, `rssi_dbm` INTEGER, `frequency_mhz` INTEGER, `band` TEXT, `channel` INTEGER, `channel_width` INTEGER, `rx_link_speed_mbps` INTEGER, `tx_link_speed_mbps` INTEGER, `max_supported_rx_link_speed_mbps` INTEGER, `max_supported_tx_link_speed_mbps` INTEGER, `wifi_standard` INTEGER, `network_transport_state` TEXT NOT NULL, `location_id_at_capture` TEXT, `location_age_ms` REAL, `location_accuracy_m_at_capture` REAL, `quality_flags` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`session_id`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`location_id_at_capture`) REFERENCES `locations`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "session_id",
+            "columnName": "session_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sequence_no",
+            "columnName": "sequence_no",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp_utc",
+            "columnName": "timestamp_utc",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp_elapsed_ns",
+            "columnName": "timestamp_elapsed_ns",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ssid",
+            "columnName": "ssid",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "bssid",
+            "columnName": "bssid",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rssi_dbm",
+            "columnName": "rssi_dbm",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "frequency_mhz",
+            "columnName": "frequency_mhz",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "band",
+            "columnName": "band",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "channel",
+            "columnName": "channel",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "channel_width",
+            "columnName": "channel_width",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "rx_link_speed_mbps",
+            "columnName": "rx_link_speed_mbps",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "tx_link_speed_mbps",
+            "columnName": "tx_link_speed_mbps",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "max_supported_rx_link_speed_mbps",
+            "columnName": "max_supported_rx_link_speed_mbps",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "max_supported_tx_link_speed_mbps",
+            "columnName": "max_supported_tx_link_speed_mbps",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "wifi_standard",
+            "columnName": "wifi_standard",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "network_transport_state",
+            "columnName": "network_transport_state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "location_id_at_capture",
+            "columnName": "location_id_at_capture",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "location_age_ms",
+            "columnName": "location_age_ms",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "location_accuracy_m_at_capture",
+            "columnName": "location_accuracy_m_at_capture",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "quality_flags",
+            "columnName": "quality_flags",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_connected_wifi_session_id_sequence_no",
+            "unique": true,
+            "columnNames": [
+              "session_id",
+              "sequence_no"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_connected_wifi_session_id_sequence_no` ON `${TABLE_NAME}` (`session_id`, `sequence_no`)"
+          },
+          {
+            "name": "index_connected_wifi_location_id_at_capture",
+            "unique": false,
+            "columnNames": [
+              "location_id_at_capture"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_connected_wifi_location_id_at_capture` ON `${TABLE_NAME}` (`location_id_at_capture`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "sessions",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "session_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "locations",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "location_id_at_capture"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "events",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `session_id` TEXT NOT NULL, `sequence_no` INTEGER NOT NULL, `timestamp_utc` TEXT NOT NULL, `timestamp_elapsed_ns` INTEGER NOT NULL, `type` TEXT NOT NULL, `payload_json` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`session_id`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "session_id",
+            "columnName": "session_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sequence_no",
+            "columnName": "sequence_no",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp_utc",
+            "columnName": "timestamp_utc",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp_elapsed_ns",
+            "columnName": "timestamp_elapsed_ns",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload_json",
+            "columnName": "payload_json",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_events_session_id_sequence_no",
+            "unique": true,
+            "columnNames": [
+              "session_id",
+              "sequence_no"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_events_session_id_sequence_no` ON `${TABLE_NAME}` (`session_id`, `sequence_no`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "sessions",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "session_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9b254c2542d19e29e968b85fa02433cf')"
+    ]
+  }
+}

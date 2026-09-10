@@ -1,0 +1,3 @@
+id,session_id,sequence_no,timestamp_utc,timestamp_elapsed_ns,latitude,longitude,accuracy_m,altitude_m,vertical_accuracy_m,bearing_deg,bearing_accuracy_deg,speed_mps,speed_accuracy_mps,provider,is_mock_if_available
+"location-2000000000","00000000-0000-4000-8000-000000000001","1","2026-01-01T00:00:00Z","2000000000","1.0E-4","2.0E-4","4.0","3.0","5.0","90.0","","0.8","","SYNTHETIC","false"
+"location-3000000000","00000000-0000-4000-8000-000000000001","2","2026-01-01T00:00:00Z","3000000000","1.0E-4","2.0E-4","35.0","3.0","5.0","90.0","","0.8","","SYNTHETIC","false"

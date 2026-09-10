@@ -1,0 +1,1 @@
+id,session_id,snapshot_id,source,ssid,bssid,rssi_dbm,frequency_mhz,band,channel,channel_width,capabilities,rtt_responder,platform_seen_elapsed_us,result_age_at_callback_ms,fresh,location_id_for_seen_time,location_join_delta_ms,quality_flags

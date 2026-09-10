@@ -1,0 +1,4 @@
+{
+  "02:00:00:00:00:01": {"name": "AP-EXAMPLE-1", "zone": "SYNTHETIC", "model": "EXAMPLE"},
+  "02:00:00:00:00:02": {"name": "AP-EXAMPLE-2", "zone": "SYNTHETIC", "model": "EXAMPLE"}
+}
