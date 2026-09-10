@@ -15,6 +15,8 @@ data class SurveyConfig(
     val min_start_free_bytes: Long = 100L * 1024 * 1024,
     val stop_free_bytes: Long = 20L * 1024 * 1024,
     val scan_collection_enabled: Boolean = false,
+    val scan_interval_ms: Long = 30_000,
+    val max_scan_age_ms: Long = 5_000,
     val indoor_anchors_enabled: Boolean = false,
     val mobile_data_state: String = "OPERATOR_NOT_RECORDED",
     val bluetooth_state: String = "OPERATOR_NOT_RECORDED",
@@ -25,6 +27,7 @@ data class SurveyConfig(
         require(location_interval_ms == 1000L)
         require(max_location_age_ms in 0..60000)
         require(accuracy_warning_m > 0 && accuracy_exclusion_m >= accuracy_warning_m)
+        require(scan_interval_ms >= 5_000 && max_scan_age_ms in 0..60_000)
     }
 }
 

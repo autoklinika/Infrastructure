@@ -125,7 +125,7 @@ fun preflight(context: Context, wifi: WifiReading, location: LocationSample?, ex
         PreflightCheck("Accuracy", location?.accuracy_m?.let { "$it m" } ?: "brak", location?.accuracy_m?.let { it <= config.accuracy_exclusion_m } == true, mode == "OUTDOOR"),
         PreflightCheck("Źródło lokalizacji", if (location?.is_mock_if_available == true) "MOCK" else "brak mock", location?.is_mock_if_available != true, mode == "OUTDOOR"),
         PreflightCheck("Nearby Wi-Fi permission", if (context.granted(Manifest.permission.NEARBY_WIFI_DEVICES)) "GRANTED" else "wymagana zgoda", context.granted(Manifest.permission.NEARBY_WIFI_DEVICES)),
-        PreflightCheck("Skanowanie / wiek skanu", "nieaktywne — Stage 2", true, false),
+        PreflightCheck("Skanowanie AP", if (config.scan_collection_enabled) "włączone; Android może ograniczać częstotliwość" else "wyłączone", true, false),
         PreflightCheck("Foreground logging", if (fine && services && notifications.areNotificationsEnabled() && channelEnabled) "gotowe do START" else "włącz lokalizację i powiadomienia aplikacji", fine && services && notifications.areNotificationsEnabled() && channelEnabled),
         PreflightCheck("Google Play Services", "Fused Location Provider", GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS),
         PreflightCheck("Eksport MediaStore", if (exportOk) "Download/WorkshopWiFiSurvey — zapis sprawdzony" else "wykonaj kontrolę celu eksportu", exportOk),

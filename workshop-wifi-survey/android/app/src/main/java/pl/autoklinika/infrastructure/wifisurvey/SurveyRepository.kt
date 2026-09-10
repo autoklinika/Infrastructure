@@ -16,6 +16,7 @@ class SurveyRepository(val db: SurveyDatabase) {
     private var wifiSequence = 0L
     private var locationSequence = 0L
     private var degraded: Boolean? = null
+    private val seenScans = hashMapOf<String, Long>()
 
     private suspend fun event(id: String, stamp: Stamp, type: String, payload: JsonObject = buildJsonObject {}) {
         val previous = dao.lastEvent(id)
@@ -33,6 +34,7 @@ class SurveyRepository(val db: SurveyDatabase) {
                     Stamp(old.started_at_utc, old.started_elapsed_ns),
                     dao.lastWifi(old.id)?.let { Stamp(it.timestamp_utc, it.timestamp_elapsed_ns) },
                     dao.lastEvent(old.id)?.let { Stamp(it.timestamp_utc, it.timestamp_elapsed_ns) },
+                    dao.lastSnapshot(old.id)?.let { Stamp(it.callback_utc, it.callback_elapsed_ns) },
                 )
                 val last = candidates.maxBy { it.elapsed }
                 // A reboot resets elapsedRealtime. Never append the new boot's elapsed clock to an old session.
@@ -56,6 +58,7 @@ class SurveyRepository(val db: SurveyDatabase) {
             event(value.id, Stamp(value.started_at_utc, value.started_elapsed_ns), "SURVEY_START")
         }
         session = value; config = parsed; wifiSequence = 0; locationSequence = 0; previousWifi = null; degraded = null
+        seenScans.clear()
     }
 
     suspend fun location(raw: LocationSample) = lock.withLock {
@@ -107,6 +110,52 @@ class SurveyRepository(val db: SurveyDatabase) {
 
     suspend fun note(stamp: Stamp, text: String) = lock.withLock {
         session?.let { event(it.id, stamp, "USER_NOTE", buildJsonObject { put("text", text.take(4000)) }) }
+    }
+
+    suspend fun contextEvent(stamp: Stamp, type: String, payload: JsonObject) = lock.withLock {
+        session?.let { event(it.id, stamp, type, payload) }
+    }
+
+    /** Join each radio at its own hardware observation time, never at broadcast receipt time. */
+    suspend fun scans(batch: ScanBatch): Int = lock.withLock {
+        val active = session ?: return@withLock 0
+        check(config.scan_collection_enabled)
+        val snapshot = ScanSnapshot(active.id, UUID.randomUUID().toString(), null, batch.stamp.elapsed,
+            batch.stamp.utc, null, batch.updated, batch.readings.size)
+        val observations = batch.readings.map { reading ->
+            val seen = reading.seenUs.takeIf { it in 1..Long.MAX_VALUE / 1000 }?.times(1000) ?: 0L
+            val age = (batch.stamp.elapsed - seen) / 1e6
+            val key = "${reading.bssid}|${reading.frequency}"
+            val duplicate = reading.seenUs <= (seenScans[key] ?: 0L)
+            val fresh = batch.updated && seen >= active.started_elapsed_ns && age in 0.0..config.max_scan_age_ms.toDouble() && !duplicate
+            val location = if (fresh) dao.nearestLocation(active.id, seen,
+                (seen - config.max_location_age_ms * 1_000_000).coerceAtLeast(0),
+                minOf(batch.stamp.elapsed, seen + config.max_location_age_ms * 1_000_000)) else null
+            val (band, channel) = MeasurementRules.bandChannel(reading.frequency)
+            val flags = buildSet {
+                if (!fresh) add("SCAN_NOT_FRESH")
+                if (duplicate) add("DUPLICATE_OBSERVATION")
+                if (!batch.updated) add("RESULTS_NOT_UPDATED")
+                if (seen == 0L || age < 0) add("SCAN_TIMESTAMP_INVALID")
+                if (location == null) add("UNLOCATED")
+                if (location?.accuracy_m == null) add("LOCATION_ACCURACY_UNKNOWN")
+                if (location?.accuracy_m?.let { it > config.accuracy_exclusion_m } == true) add("LOCATION_POOR_ACCURACY")
+                if (location?.is_mock_if_available == true) add("MOCK_LOCATION")
+                if (reading.rssi !in -126..0) add("RSSI_INVALID")
+                if (reading.bssid == null) add("IDENTIFIERS_REDACTED")
+                if (active.ssid_filter != null && reading.ssid != active.ssid_filter) add("SSID_FILTER_MISMATCH")
+            }
+            if (seen > 0 && age >= 0) seenScans[key] = maxOf(seenScans[key] ?: 0, reading.seenUs)
+            ScanObservation(UUID.randomUUID().toString(), active.id, snapshot.snapshot_id, ssid = reading.ssid,
+                bssid = reading.bssid, rssi_dbm = reading.rssi, frequency_mhz = reading.frequency, band = band,
+                channel = channel, channel_width = reading.width, capabilities = reading.capabilities,
+                rtt_responder = reading.rtt, platform_seen_elapsed_us = reading.seenUs, result_age_at_callback_ms = age,
+                fresh = fresh, location_id_for_seen_time = location?.id,
+                location_join_delta_ms = location?.let { (it.timestamp_elapsed_ns - seen) / 1e6 },
+                quality_flags = flags.sorted().joinToString("|"))
+        }
+        db.withTransaction { dao.insertSnapshot(snapshot); dao.insertScans(observations) }
+        observations.count { it.fresh }
     }
 
     suspend fun stop(stamp: Stamp, reason: String = "OPERATOR_STOP", interrupted: Boolean = false): SurveySession? = lock.withLock {

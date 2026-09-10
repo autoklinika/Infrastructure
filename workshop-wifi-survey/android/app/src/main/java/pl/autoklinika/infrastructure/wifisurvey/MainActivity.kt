@@ -100,8 +100,8 @@ class MainActivity : ComponentActivity() {
                         onBack = { vm.closeReview(); tab = 1 }, onExport = { review?.let { vm.export(it.session.id) } })
                     tab == 0 -> NewSurveyScreen(preflight, wifi, error, exporting, fixCheck,
                         onMode = { vm.mode = it }, onStart = { name, mode ->
-                            vm.config = SurveyConfig(); vm.mode = mode
-                            vm.start(StartRequest(name, mode, null, null, null, SurveyConfig()))
+                            vm.config = SurveyConfig(scan_collection_enabled = true); vm.mode = mode
+                            vm.start(StartRequest(name, mode, null, null, null, vm.config))
                         })
                     else -> HistoryScreen(sessions.filter { it.status != "ACTIVE" }, vm::showSession,
                         onOpenFile = { openFile.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")) })

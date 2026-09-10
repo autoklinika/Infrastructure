@@ -7,7 +7,8 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 
 data class LiveStatus(val sessionId: String? = null, val sample: ConnectedWifiSample? = null,
-                      val locations: Long = 0, val durationSeconds: Long = 0, val message: String = "")
+                      val locations: Long = 0, val durationSeconds: Long = 0, val message: String = "",
+                      val freshAps: Int = 0, val scanAgeSeconds: Long? = null)
 
 class SurveyApplication : Application() {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

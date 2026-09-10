@@ -19,8 +19,8 @@ android {
         applicationId = "pl.autoklinika.infrastructure.wifisurvey"
         minSdk = 34
         targetSdk = 37
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
         buildConfigField("String", "GIT_COMMIT", "\"$revision${if (dirty) "-dirty" else ""}\"")
     }
     buildFeatures { compose = true; buildConfig = true }

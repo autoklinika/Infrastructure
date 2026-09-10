@@ -24,7 +24,7 @@ class SurveyViewModel(application: Application) : AndroidViewModel(application) 
     val imported = MutableStateFlow(false)
     private var reviewJob: Job? = null
     private var reviewRequest = 0L
-    var config = SurveyConfig()
+    var config = SurveyConfig(scan_collection_enabled = true)
     var mode = "OUTDOOR"
     var previewEnabled = true
     private var exportOk = false
@@ -56,7 +56,8 @@ class SurveyViewModel(application: Application) : AndroidViewModel(application) 
         if (!preflight.value.canStart || app.busy.value) return
         val connectivity = app.getSystemService(ConnectivityManager::class.java)
         val vpn = connectivity.activeNetwork?.let { connectivity.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) } == true
-        val capturedConfig = request.config.copy(vpn_active = vpn)
+        val throttle = app.getSystemService(android.net.wifi.WifiManager::class.java).isScanThrottleEnabled
+        val capturedConfig = request.config.copy(vpn_active = vpn, scan_interval_ms = if (throttle) 30_000 else 5_000)
         val intent = Intent(app, SurveyService::class.java).setAction(SurveyService.START)
             .putExtra("name", request.name.trim()).putExtra("mode", request.mode)
             .putExtra("route", request.route).putExtra("filter", request.filter).putExtra("notes", request.notes)

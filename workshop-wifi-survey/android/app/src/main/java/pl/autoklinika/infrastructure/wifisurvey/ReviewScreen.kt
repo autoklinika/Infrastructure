@@ -28,6 +28,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.background
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -64,10 +67,10 @@ fun ReviewScreen(review: SurveyReview?, loading: Boolean, error: String?, import
 
 @Composable
 private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Boolean, onExport: () -> Unit) {
-    var route by rememberSaveable(review.session.id) { mutableStateOf(false) }
+    var route by rememberSaveable(review.session.id) { mutableStateOf(true) }
+    var expandedMap by rememberSaveable(review.session.id) { mutableStateOf(false) }
     var selectedIndex by rememberSaveable(review.session.id) { mutableIntStateOf(0) }
     val selected = review.points.getOrNull(selectedIndex)
-    val projection = remember(review) { RouteProjection(review.routePoints) }
     var details by rememberSaveable(review.session.id) { mutableStateOf(false) }
     val chartAnchor = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
@@ -76,12 +79,12 @@ private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Bo
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text("WYNIK POMIARU", color = Teal, style = MaterialTheme.typography.labelMedium, letterSpacing = 2.sp)
-            Text(review.session.name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text(review.session.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text("${sessionDate(review.session)}  ·  ${durationLabel(review.durationSeconds)}", color = Muted, style = MaterialTheme.typography.bodyMedium)
             if (imported) Text("Podgląd pliku · sprawdzono integralność", color = Teal, style = MaterialTheme.typography.labelMedium)
             if (review.session.status == "INTERRUPTED") Text("Pomiar został przerwany. Wynik obejmuje zachowane odczyty.", color = Amber)
         }
-        Surface(color = Ink, shape = RoundedCornerShape(24.dp)) {
+        if (!route) Surface(color = Ink, shape = RoundedCornerShape(24.dp)) {
             Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(review.goodPercent?.let { "${it.roundToInt()}% odczytów z dobrym sygnałem" } ?: "Brak odczytów siły sygnału",
                     color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
@@ -96,28 +99,32 @@ private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Bo
             }
         }
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            SegmentedButton(selected = !route, onClick = { route = false }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Sygnał w czasie") }
-            SegmentedButton(selected = route, onClick = { route = true }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Trasa GPS") }
+            SegmentedButton(selected = route, onClick = { route = true }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Mapa zasięgu") }
+            SegmentedButton(selected = !route, onClick = { route = false }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Sygnał w czasie") }
         }
         WhiteCard(Modifier.bringIntoViewRequester(chartAnchor)) {
-            Text(if (route) "Gdzie sygnał był słabszy?" else "Jak zmieniał się sygnał?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(if (route) "Dotknij punktu, aby zobaczyć wynik z tego miejsca." else "Wyżej = lepszy sygnał. Dotknij wykresu, aby wybrać chwilę.",
+            Text(if (route) "Zasięg w zbadanych miejscach" else "Jak zmieniał się sygnał?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(if (route) "Wybierz AP lub dotknij pola na mapie." else "Wyżej = lepszy sygnał. Dotknij wykresu, aby wybrać chwilę.",
                 style = MaterialTheme.typography.bodySmall, color = Muted)
             if (route) {
                 when {
-                    projection.positions.isEmpty() -> Text("Brak dokładnych pozycji GPS do pokazania. Wszystkie odczyty Wi-Fi są dostępne na wykresie.", modifier = Modifier.padding(vertical = 24.dp), color = Muted)
-                    projection.span > 50_000 -> Text("Trasa jest zbyt rozległa do lokalnego widoku. Pozycje pozostają w pliku eksportu.", color = Muted)
-                    else -> RouteChart(projection, selected, select)
+                    review.coverage.cells.isEmpty() -> Text("Brak dokładnych pomiarów GPS z rozpoznanym AP. Odczyty Wi-Fi są dostępne na wykresie.", modifier = Modifier.padding(vertical = 24.dp), color = Muted)
+                    else -> {
+                        CoverageMapView(review.coverage, selected, Modifier.fillMaxWidth().height(450.dp))
+                        TextButton(onClick = { expandedMap = true }, modifier = Modifier.fillMaxWidth()) { Text("Powiększ mapę na cały ekran") }
+                    }
                 }
             } else if (review.points.isEmpty()) Text("Ten pomiar nie zawiera jeszcze odczytów.", modifier = Modifier.padding(vertical = 24.dp))
             else SignalChart(review, selected, select)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (!route) FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Legend("Dobry", Teal); Legend("Słabszy", Amber); Legend("Bardzo słaby", WeakRed)
             }
-            Text(if (route) "Widok trasy bez podkładu mapy. Szary odcinek oznacza brak odczytu sygnału. Przerwy nie są łączone."
+            Text(if (route) "Kolor opisuje zapisany sygnał w polu, nie gwarantuje zasięgu w każdym jego punkcie. Nie wypełniamy miejsc bez pomiarów."
                 else "Przerwy na wykresie oznaczają brak odczytu. To pomiar siły Wi-Fi, a nie prędkości internetu.",
                 style = MaterialTheme.typography.bodySmall, color = Muted)
         }
+        if (route && !review.coverage.scanEnabled) Text("Starszy pomiar: zapisano tylko AP połączony z telefonem. Nowy pomiar zbierze również pozostałe widoczne AP.", color = Amber, style = MaterialTheme.typography.bodySmall)
+        if (route && review.coverage.scanEnabled && review.coverage.mappedScanCount == 0) Text("Brak świeżych skanów AP z dokładną pozycją. Mapa pokazuje dostępne pomiary połączenia telefonu.", color = Amber, style = MaterialTheme.typography.bodySmall)
         if (selected != null) WhiteCard {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Chwila ${durationLabel(selected.seconds)}", style = MaterialTheme.typography.titleMedium)
@@ -143,7 +150,7 @@ private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Bo
         if (details) WhiteCard {
             Text("Odczyty Wi-Fi: ${review.sampleCount}\nDo pokazania na trasie: ${review.locatedCount}\nSłabszy sygnał: ${review.weakCount} odczytów\nPrzerwy w zapisie: ${review.gapCount}")
             Text("Dobry sygnał: co najmniej −67 dBm. Procent obejmuje wszystkie odczyty, także brak połączenia lub brak wartości sygnału. Nie określa procentu pokrycia terenu.", style = MaterialTheme.typography.bodySmall, color = Muted)
-            Text("Źródło: bieżące połączenie telefonu (CONNECTED_LINK).", style = MaterialTheme.typography.bodySmall, color = Muted)
+            Text("Wykres: bieżące połączenie telefonu. Mapa: osobno połączenie i skany AP. Skanów: ${review.coverage.scanCount}; świeżych z dokładnym GPS: ${review.coverage.mappedScanCount}. AP oznacza pojedyncze radio (BSSID), nie zawsze osobne urządzenie.", style = MaterialTheme.typography.bodySmall, color = Muted)
             if (review.sampleCount > review.points.size) Text("Długi zapis: wykres pokazuje skrót z zachowaniem skrajnych wartości. Podsumowanie obejmuje wszystkie odczyty.", style = MaterialTheme.typography.bodySmall)
             selected?.latitude?.let { Text("Wybrana pozycja GPS: ${String.format(Locale.ROOT, "%.6f, %.6f", it, selected.longitude)}", style = MaterialTheme.typography.bodySmall) }
         }
@@ -155,6 +162,12 @@ private fun ReviewContent(review: SurveyReview, imported: Boolean, exporting: Bo
                 else "Pliki znajdziesz w folderze Pobrane / WorkshopWiFiSurvey.", style = MaterialTheme.typography.bodySmall, color = Muted)
         }
         Spacer(Modifier.height(20.dp))
+    }
+    if (expandedMap) Dialog(onDismissRequest = { expandedMap = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(Modifier.fillMaxSize().background(Paper).safeDrawingPadding()) {
+            TextButton(onClick = { expandedMap = false }) { Text("←  Wróć do wyniku") }
+            CoverageMapView(review.coverage, selected, Modifier.fillMaxWidth().weight(1f))
+        }
     }
 }
 

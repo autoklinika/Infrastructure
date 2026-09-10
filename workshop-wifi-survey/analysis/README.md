@@ -1,4 +1,4 @@
-# Stage 1 — walidacja i prywatne pobranie
+# Stage 1/2 — walidacja i prywatne pobranie
 
 Wymagany Python 3.11+; wyłącznie standard library. Uruchamiaj z katalogu repo.
 
@@ -34,7 +34,10 @@ Limit rozpakowanego pakietu: 512 MiB; większy plik zwraca jawny FAIL.
 
 PASS dotyczy integralności i formatu. Ostrzeżenia raportują m.in. brak GPS,
 poor accuracy, przerwaną sesję i luki próbkowania. Nie jest to akceptacja sprzętowa
-ani zgoda na heatmapę. Mapy i pipeline Stage 3 nie są zaimplementowane.
+ani zgoda na interpolowanie zasięgu. Wersja 0.3 sprawdza również skany AP,
+ich świeżość, brak duplikatów oznaczonych jako świeże, liczniki i joiny w czasie
+obserwacji AP. Android ma lokalny podgląd mapy; pipeline interpolacji Stage 3
+nie jest zaimplementowany.
 
 Testy:
 

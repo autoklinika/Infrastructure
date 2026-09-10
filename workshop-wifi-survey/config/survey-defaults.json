@@ -8,6 +8,8 @@
   "min_start_free_bytes": 104857600,
   "stop_free_bytes": 20971520,
   "target_rssi_dbm": -67,
-  "scan_collection_enabled": false,
+  "scan_collection_enabled": true,
+  "scan_interval_ms": 30000,
+  "max_scan_age_ms": 5000,
   "indoor_anchors_enabled": false
 }

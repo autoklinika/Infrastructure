@@ -1,4 +1,4 @@
-"""Stage 1 ZIP integrity/format validator. No maps, interpolation, or neighbor analysis."""
+"""Stage 1/2 ZIP integrity validator, including scan freshness and observation-time GPS joins."""
 from __future__ import annotations
 
 import argparse
@@ -60,8 +60,87 @@ def finite(value: str) -> float:
     return number
 
 
+def validate_scans(rows, metadata, locations, errors, metrics):
+    config = metadata["configuration_snapshot"]
+    max_age = finite(str(config.get("max_scan_age_ms", 5000)))
+    if not 0 <= max_age <= 60000 or int(config.get("scan_interval_ms", 30000)) < 5000:
+        raise ValueError("INVALID_SCAN_CONFIGURATION")
+    start, end = int(metadata["started_elapsed_ns"]), int(metadata["ended_elapsed_ns"])
+    snapshots, counts, seen, ids = {}, {}, {}, set()
+    for snapshot in rows["scan_snapshots.csv"]:
+        key = snapshot["snapshot_id"]
+        callback = int(snapshot["callback_elapsed_ns"])
+        utc(snapshot["callback_utc"])
+        if key in snapshots or snapshot["session_id"] != metadata["id"] or not start <= callback <= end:
+            errors.append("SCAN_SNAPSHOT_IDENTITY_OR_TIME_INVALID")
+        if snapshot["results_updated"] not in ("true", "false") or int(snapshot["result_count"]) < 0:
+            errors.append("SCAN_SNAPSHOT_FIELDS_INVALID")
+        request, accepted = snapshot["request_elapsed_ns"], snapshot["request_accepted"]
+        if bool(request) != bool(accepted) or accepted not in ("", "true", "false"):
+            errors.append("SCAN_REQUEST_INVALID")
+        if request and not start <= int(request) <= callback:
+            errors.append("SCAN_REQUEST_TIME_INVALID")
+        snapshots[key] = snapshot
+    fresh_count = located_count = 0
+    for row in rows["scan_results.csv"]:
+        if row["id"] in ids or row["session_id"] != metadata["id"] or row["source"] != "SCAN_RESULT":
+            errors.append("SCAN_RESULT_IDENTITY_INVALID")
+        ids.add(row["id"])
+        snapshot = snapshots.get(row["snapshot_id"])
+        if snapshot is None:
+            errors.append("SCAN_SNAPSHOT_FOREIGN_KEY_MISSING")
+            continue
+        counts[row["snapshot_id"]] = counts.get(row["snapshot_id"], 0) + 1
+        stamp_us = int(row["platform_seen_elapsed_us"])
+        elapsed = stamp_us * 1000 if 1 <= stamp_us <= (2**63 - 1) // 1000 else 0
+        age = (int(snapshot["callback_elapsed_ns"]) - elapsed) / 1e6
+        if not math.isclose(age, finite(row["result_age_at_callback_ms"]), abs_tol=.001):
+            errors.append("SCAN_AGE_MISMATCH")
+        if row["fresh"] not in ("true", "false") or row["rtt_responder"] not in ("true", "false"):
+            errors.append("SCAN_BOOLEAN_INVALID")
+        flags = set(row["quality_flags"].split("|"))
+        key = row["bssid"], row["frequency_mhz"]
+        if row["bssid"] and not BSSID.fullmatch(row["bssid"]):
+            errors.append("SCAN_BSSID_INVALID")
+        if not -126 <= int(row["rssi_dbm"]) <= 0 and "RSSI_INVALID" not in flags:
+            errors.append("SCAN_RSSI_INVALID")
+        band, channel = frequency_channel(int(row["frequency_mhz"]))
+        if band is not None and (row["band"] != band or row["channel"] != str(channel)):
+            errors.append("SCAN_FREQUENCY_BAND_CHANNEL_MISMATCH")
+        if row["fresh"] == "true":
+            fresh_count += 1
+            if not (snapshot["results_updated"] == "true" and elapsed >= start and 0 <= age <= max_age and stamp_us > seen.get(key, 0)):
+                errors.append("STALE_OR_DUPLICATE_SCAN_MARKED_FRESH")
+        elif "SCAN_NOT_FRESH" not in flags:
+            errors.append("STALE_SCAN_FLAG_MISSING")
+        if elapsed > 0 and age >= 0:
+            seen[key] = max(seen.get(key, 0), stamp_us)
+        location_id = row["location_id_for_seen_time"]
+        if location_id:
+            location = locations.get(location_id)
+            if location is None:
+                errors.append("SCAN_LOCATION_FOREIGN_KEY_MISSING")
+                continue
+            delta = (int(location["timestamp_elapsed_ns"]) - elapsed) / 1e6
+            if row["fresh"] != "true" or abs(delta) > config["max_location_age_ms"] or int(location["timestamp_elapsed_ns"]) > int(snapshot["callback_elapsed_ns"]):
+                errors.append("SCAN_LOCATION_JOIN_OUTSIDE_WINDOW")
+            if not row["location_join_delta_ms"] or not math.isclose(finite(row["location_join_delta_ms"]), delta, abs_tol=.001):
+                errors.append("SCAN_LOCATION_DELTA_MISMATCH")
+            if "UNLOCATED" in flags:
+                errors.append("SCAN_LOCATION_FLAGS_CONTRADICTORY")
+            located_count += 1
+        elif row["location_join_delta_ms"] or "UNLOCATED" not in flags:
+            errors.append("SCAN_UNLOCATED_INVALID")
+    if any(int(s["result_count"]) != counts.get(key, 0) for key, s in snapshots.items()):
+        errors.append("SCAN_RESULT_COUNT_MISMATCH")
+    for key in ("scan_snapshots", "scan_results"):
+        if metadata["counts"].get(key) != len(rows[key + ".csv"]):
+            errors.append("METADATA_COUNT_MISMATCH:" + key)
+    metrics.update(fresh_scan_count=fresh_count, located_scan_count=located_count)
+
+
 def validate(path: Path) -> dict:
-    result = {"validator_version": "0.1.0", "status": "FAIL", "errors": [], "warnings": [], "metrics": {}}
+    result = {"validator_version": "0.3.0", "status": "FAIL", "errors": [], "warnings": [], "metrics": {}}
     errors, warnings, metrics = result["errors"], result["warnings"], result["metrics"]
     try:
         with path.open("rb") as stream:
@@ -92,7 +171,7 @@ def validate(path: Path) -> dict:
         metadata = json.loads(files["metadata.json"])
         if metadata["schema_version"] != VERSION:
             raise ValueError("METADATA_SCHEMA_MISMATCH")
-        if metadata.get("measurement_source") != "CONNECTED_LINK" or metadata.get("collector_stage") != 1:
+        if metadata.get("measurement_source") != "CONNECTED_LINK" or metadata.get("collector_stage") not in (1, 2):
             raise ValueError("UNSUPPORTED_COLLECTOR_STAGE_OR_SOURCE")
         if metadata["status"] not in {"COMPLETED", "INTERRUPTED", "EXPORT_FAILED"}:
             raise ValueError("SESSION_NOT_ENDED")
@@ -104,6 +183,11 @@ def validate(path: Path) -> dict:
             raise ValueError("NEGATIVE_SESSION_DURATION")
         metrics["duration_seconds"] = duration_ns / 1e9
         config = metadata["configuration_snapshot"]
+        scan_enabled = config.get("scan_collection_enabled", False)
+        if metadata["collector_stage"] != (2 if scan_enabled else 1):
+            raise ValueError("SCAN_CONFIGURATION_STAGE_MISMATCH")
+        if config != json.loads(metadata["configuration_snapshot_json"]):
+            raise ValueError("CONFIGURATION_SNAPSHOT_MISMATCH")
         max_age = finite(str(config["max_location_age_ms"]))
         interval = finite(str(config["connected_interval_ms"]))
         if not 0 <= max_age <= 60000 or not 500 <= interval <= 10000:
@@ -117,7 +201,7 @@ def validate(path: Path) -> dict:
             if any(None in row or any(value is None for value in row.values()) for row in rows[name]):
                 raise ValueError(f"CSV_ROW_WIDTH_INVALID:{name}")
             metrics[name.removesuffix(".csv") + "_count"] = len(rows[name])
-        for name in ("scan_snapshots.csv", "scan_results.csv", "indoor_anchors.csv"):
+        for name in (("indoor_anchors.csv",) if scan_enabled else ("scan_snapshots.csv", "scan_results.csv", "indoor_anchors.csv")):
             if rows[name]:
                 errors.append(f"UNEXPECTED_STAGE_1_STREAM:{name}")
         for name in ("connected_wifi.csv", "locations.csv", "events.csv"):
@@ -142,6 +226,8 @@ def validate(path: Path) -> dict:
                 errors.append("LOCATION_COORDINATES_INVALID")
             if row["accuracy_m"] and finite(row["accuracy_m"]) < 0:
                 errors.append("LOCATION_ACCURACY_INVALID")
+        if scan_enabled:
+            validate_scans(rows, metadata, locations, errors, metrics)
         bound = 0
         poor = sum(bool(row["accuracy_m"]) and finite(row["accuracy_m"]) > config["accuracy_exclusion_m"] for row in locations.values())
         deltas = []
@@ -226,7 +312,7 @@ def validate(path: Path) -> dict:
 def write_reports(result: dict, output: Path):
     output.mkdir(parents=True, exist_ok=True)
     (output / "validation.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    text = f"# Stage 1 format validation: {result['status']}\n\n"
+    text = f"# Survey format validation: {result['status']}\n\n"
     text += "A format PASS is not a physical-device acceptance or spatial-quality approval.\n\n"
     for group in ("errors", "warnings"):
         text += f"## {group.capitalize()}\n\n" + "\n".join(f"- {item}" for item in result[group]) + "\n\n"

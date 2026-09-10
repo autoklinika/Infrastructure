@@ -3,10 +3,11 @@
 Collector Android dla Samsung Galaxy Z Flip6, Application ID
 `pl.autoklinika.infrastructure.wifisurvey`.
 
-Zakres tego PR: **Stage 0 + Stage 1, przygotowanie do fizycznego testu**.
-Nie oznacza to jeszcze pełnej akceptacji sprzętowej MVP. Wersja 0.2 dodaje prosty
-polski interfejs, wykres sygnału i lokalny widok trasy GPS z zapisanych sesji/ZIP.
-Skany sąsiednich AP, heatmapy, anchory indoor i aktywne testy pozostają poza zakresem.
+Zakres tego PR: **collector, prosty interfejs, skany AP i mapa pomiarów OSM**.
+Wersja 0.3 rozszerza Stage 0/1 o skany Stage 2, mapę z wyborem AP i panel Flipa.
+Mapa pokazuje statystyki w zbadanych polach, bez modelowania zasięgu poza pomiarami.
+Anchory indoor, plan budynku, interpolacja Stage 3 i aktywne testy pozostają poza zakresem.
+Szczegóły działania i ograniczeń: [mapa i Flip 0.3](docs/coverage-and-flip-0.3.md).
 
 Dokument wykonawczy: [specyfikacja v1.1](../docs/workshop-wifi-survey-android-plan.md).
 Ponieważ specyfikacja nie była jeszcze na `main`, dołączono jej niezmienioną treść
@@ -52,14 +53,16 @@ może wymagać tego samego klucza. Nie odinstalowuj aplikacji z niepobranymi ses
 - Ekran „Nowy pomiar” z prostą instrukcją usunięcia aktualnej blokady.
 - Opcjonalna nazwa i wybór „Na zewnątrz / W budynku / Tu i tu”.
 - Automatycznie ustawione 1000 ms zapisu i 2500 ms limitu wieku GPS; bez pól technicznych.
-- „Moje pomiary”: podsumowanie, interaktywny wykres sygnału i trasa GPS bez usług mapowych.
+- „Moje pomiary” otwiera mapę OpenStreetMap z wyborem sieci/AP; obok jest wykres sygnału.
+- Kolor pola opisuje sygnał osiągnięty w co najmniej 90% jego odczytów. Puste pola pozostają puste.
+- Sąsiednie AP są zbierane z broadcastów Androida, z własnymi czasami obserwacji i joinami GPS.
 - Otwieranie wcześniejszych ZIP przez systemowy wybór pliku, po kontroli checksum i powiązań.
 - Location foreground service uruchamiany z widocznego ekranu, bez background location.
 - Room/WAL; transakcyjny zapis każdej próbki i powiązanych eventów, kolejka maks. 64 komunikatów.
 - Około 1 Hz obserwacji bieżącego połączenia i żądania FLP 1 Hz; rzeczywisty rytm zależy od Androida.
 - UTC i elapsed nanoseconds, join do najnowszego dostępnego fix niepóźniejszego niż odczyt Wi-Fi.
 - BSSID transition, disconnect/reconnect, degradacja/powrót lokalizacji i notatki.
-- Ekran aktywny, status na żywo i powiadomienie z przyciskiem STOP.
+- Zapis przy zgaszonym ekranie, status na żywo, powiadomienie i widżet ekranu zewnętrznego Flipa.
 - Wykrywanie sesji przerwanej po awarii/reboocie i ponawialny eksport.
 - ZIP do `Download/WorkshopWiFiSurvey/`, bez broad storage permissions.
 
@@ -68,7 +71,9 @@ Brak fix w INDOOR/MIXED jest ostrzeżeniem; Stage 1 zachowuje surowe dane bez an
 Po START utrata fix nigdy nie odrzuca próbek Wi-Fi. Filtr SSID również oznacza
 niezgodność flagą, zamiast usuwać pomiary. Progi są w snapshot sesji;
 `config/survey-defaults.json` dokumentuje wartości bazowe, nie jest automatycznie
-wczytywany z checkoutu przez APK. Nowe pomiary używają tych stałych wartości.
+wczytywany z checkoutu przez APK. Nowe pomiary włączają skany AP; żądania co 30 s
+przy systemowym ograniczaniu skanów lub co 5 s, jeśli operator już wyłączył to
+ograniczenie w opcjach programistycznych. Aplikacja nie zmienia tego ustawienia.
 Starsze sesje zachowują własną konfigurację; przeglądarka respektuje zapisany limit
 wieku i jakości lokalizacji. Szczegóły: [interfejs i wykresy 0.2](docs/interface-and-review-0.2.md).
 
@@ -92,6 +97,8 @@ Przed każdym commitem sprawdzaj staging i nie dodawaj rzeczywistych danych
 do `testdata/synthetic/`. Eksport w Downloads jest prywatnym plikiem operacyjnym
 na telefonie, dostępnym dla operatora; nie udostępniaj go publicznie.
 Kopie chmurowe i transfer danych aplikacji są wyłączone w manifeście.
+Przeglądanie mapy pobiera kafle aktualnego widoku z OpenStreetMap. Warstwa pomiarów,
+SSID, BSSID i logi są obliczane lokalnie. Aplikacja nie wysyła ich do serwera map.
 
 ## Dalsze instrukcje
 

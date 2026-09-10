@@ -65,6 +65,7 @@ object SurveyLogReader {
                 session.ended_elapsed_ns >= session.started_elapsed_ns) { "Nieprawidłowe dane pomiaru." }
             Instant.parse(session.started_at_utc); Instant.parse(session.ended_at_utc!!)
             val config = readerJson.decodeFromString(SurveyConfig.serializer(), session.configuration_snapshot_json)
+            require(readerJson.parseToJsonElement(session.configuration_snapshot_json) == metadata["configuration_snapshot"]) { "Niezgodne kopie konfiguracji pomiaru." }
             val locations = hashMapOf<String, LocationSample>()
             var locationSequence = 0L
             rows(File(directory, "locations.csv"), LocationSample.serializer()) { location ->
@@ -93,7 +94,7 @@ object SurveyLogReader {
                 } else require("UNLOCATED" in sample.quality_flags.split('|')) { "Brak oznaczenia pomiaru bez lokalizacji." }
                 samples += ReviewSample(sample.sequence_no, sample.timestamp_elapsed_ns, sample.rssi_dbm,
                     sample.network_transport_state == "WIFI_CONNECTED", location?.latitude, location?.longitude,
-                    location?.accuracy_m, sample.location_age_ms, location?.is_mock_if_available, sample.quality_flags)
+                    location?.accuracy_m, sample.location_age_ms, location?.is_mock_if_available, sample.quality_flags, sample.ssid, sample.bssid)
             }
             identifiers.clear(); sequence = 0; lastElapsed = session.started_elapsed_ns
             rows(File(directory, "events.csv"), SurveyEvent.serializer()) { event ->
@@ -102,11 +103,53 @@ object SurveyLogReader {
                 Instant.parse(event.timestamp_utc); lastElapsed = event.timestamp_elapsed_ns
                 readerJson.parseToJsonElement(event.payload_json).jsonObject
             }
+            val snapshots = hashMapOf<String, ScanSnapshot>()
+            val scanCounts = hashMapOf<String, Int>()
+            val seen = hashMapOf<String, Long>()
+            val scans = mutableListOf<CoverageReading>()
+            var scanCount = 0
+            require(metadata["collector_stage"]?.jsonPrimitive?.int == if (config.scan_collection_enabled) 2 else 1) { "Nieprawidłowy etap zbierania danych." }
+            if (config.scan_collection_enabled) require(hashes.keys.containsAll(listOf("scan_snapshots.csv", "scan_results.csv"))) { "Brak skanów AP." }
+            File(directory, "scan_snapshots.csv").takeIf { it.exists() }?.let { file ->
+                rows(file, ScanSnapshot.serializer()) { snapshot ->
+                    require(config.scan_collection_enabled && snapshot.session_id == session.id && snapshot.result_count >= 0 &&
+                        snapshot.callback_elapsed_ns in session.started_elapsed_ns..session.ended_elapsed_ns &&
+                        snapshots.put(snapshot.snapshot_id, snapshot) == null) { "Nieprawidłowy zapis skanu." }
+                    Instant.parse(snapshot.callback_utc)
+                    require((snapshot.request_elapsed_ns == null) == (snapshot.request_accepted == null)) { "Niepełne dane żądania skanu." }
+                    snapshot.request_elapsed_ns?.let { require(it in session.started_elapsed_ns..snapshot.callback_elapsed_ns) }
+                }
+            }
+            identifiers.clear()
+            File(directory, "scan_results.csv").takeIf { it.exists() }?.let { file ->
+                rows(file, ScanObservation.serializer()) { scan ->
+                    val snapshot = snapshots[scan.snapshot_id] ?: error("Brak skanu wskazanego przez odczyt AP.")
+                    require(scan.session_id == session.id && scan.source == "SCAN_RESULT" && identifiers.add(scan.id)) { "Nieprawidłowe źródło odczytu AP." }
+                    val elapsed = scan.platform_seen_elapsed_us.takeIf { it in 1..Long.MAX_VALUE / 1000 }?.times(1000) ?: 0L
+                    val age = (snapshot.callback_elapsed_ns - elapsed) / 1e6
+                    require(scan.result_age_at_callback_ms.isFinite() && abs(age - scan.result_age_at_callback_ms) <= .001) { "Nieprawidłowy wiek skanu." }
+                    val key = "${scan.bssid}|${scan.frequency_mhz}"
+                    if (scan.fresh) require(snapshot.results_updated && elapsed >= session.started_elapsed_ns &&
+                        age in 0.0..config.max_scan_age_ms.toDouble() && scan.platform_seen_elapsed_us > (seen[key] ?: 0)) { "Nieaktualny skan oznaczony jako nowy." }
+                    if (elapsed > 0 && age >= 0) seen[key] = maxOf(seen[key] ?: 0, scan.platform_seen_elapsed_us)
+                    val location = scan.location_id_for_seen_time?.let { locations[it] ?: error("Brak pozycji skanu.") }
+                    if (location != null) {
+                        val delta = (location.timestamp_elapsed_ns - elapsed) / 1e6
+                        require(scan.fresh && location.timestamp_elapsed_ns <= snapshot.callback_elapsed_ns && abs(delta) <= config.max_location_age_ms &&
+                            scan.location_join_delta_ms?.let { it.isFinite() && abs(it - delta) <= .001 } == true) { "Nieprawidłowe powiązanie skanu z GPS." }
+                    } else require(scan.location_join_delta_ms == null && "UNLOCATED" in scan.quality_flags.split('|')) { "Brak oznaczenia skanu bez GPS." }
+                    CoverageAnalysis.scanReading(scan, location, config)?.let(scans::add)
+                    scanCount++; scanCounts[scan.snapshot_id] = (scanCounts[scan.snapshot_id] ?: 0) + 1
+                }
+            }
+            require(snapshots.values.all { it.result_count == (scanCounts[it.snapshot_id] ?: 0) }) { "Niepełne wyniki skanu." }
             metadata["counts"]?.jsonObject?.let { counts ->
                 require(counts["connected_wifi"]?.jsonPrimitive?.long == samples.size.toLong() &&
                     counts["locations"]?.jsonPrimitive?.long == locations.size.toLong()) { "Liczba próbek nie zgadza się z opisem pliku." }
+                if (config.scan_collection_enabled) require(counts["scan_snapshots"]?.jsonPrimitive?.int == snapshots.size &&
+                    counts["scan_results"]?.jsonPrimitive?.int == scanCount) { "Liczba skanów nie zgadza się z opisem pliku." }
             }
-            return ReviewAnalysis.build(session, samples)
+            return ReviewAnalysis.build(session, samples, scans, scanCount)
         } finally {
             directory.listFiles()?.forEach { it.delete() }
             directory.delete()

@@ -7,6 +7,7 @@ data class ReviewSample(
     val sequence: Long, val elapsed: Long, val rssi: Int?, val connected: Boolean,
     val latitude: Double?, val longitude: Double?, val accuracy: Float?,
     val age: Double?, val mock: Boolean?, val flags: String,
+    val ssid: String? = null, val bssid: String? = null,
 )
 
 data class ReviewPoint(
@@ -20,6 +21,7 @@ data class SurveyReview(
     val validSignalCount: Int, val goodCount: Int, val weakCount: Int,
     val disconnectedCount: Int, val locatedCount: Int, val minimumRssi: Int?,
     val durationSeconds: Double, val gapCount: Int,
+    val coverage: CoverageMap = CoverageMap(),
 ) {
     val goodPercent get() = if (validSignalCount == 0 || sampleCount == 0) null else 100.0 * goodCount / sampleCount
     val routePoints get() = points.filter { it.latitude != null && it.longitude != null }
@@ -27,13 +29,14 @@ data class SurveyReview(
 
 object ReviewAnalysis {
     const val MAX_SAMPLES = 100_000
-    fun build(session: SurveySession, samples: List<ReviewSample>): SurveyReview {
+    fun build(session: SurveySession, samples: List<ReviewSample>, scans: List<CoverageReading> = emptyList(), scanCount: Int = 0): SurveyReview {
         require(samples.size <= MAX_SAMPLES) { "Ten pomiar jest za długi do podglądu na telefonie. Użyj eksportu na komputerze." }
         val config = surveyJson.decodeFromString<SurveyConfig>(session.configuration_snapshot_json)
         val gapSeconds = max(2.5, config.connected_interval_ms / 1000.0 * 2.5)
         var signalSegment = 0; var routeSegment = 0; var gaps = 0
         var good = 0; var weak = 0; var disconnected = 0; var valid = 0; var located = 0
         var previous: ReviewPoint? = null
+        val coverage = scans.toMutableList()
         val all = samples.map { sample ->
             val seconds = (sample.elapsed - session.started_elapsed_ns) / 1e9
             val flags = sample.flags.split('|').toSet()
@@ -47,6 +50,8 @@ object ReviewAnalysis {
                 sample.mock == false && flags.none { it in setOf("UNLOCATED", "LOCATION_STALE", "LOCATION_FROM_FUTURE",
                     "LOCATION_POOR_ACCURACY", "LOCATION_ACCURACY_UNKNOWN", "MOCK_LOCATION", "SSID_FILTER_MISMATCH") }
             if (onMap) located++
+            if (onMap && rssi != null && !sample.bssid.isNullOrBlank()) coverage += CoverageReading(sample.elapsed,
+                "CONNECTED_LINK", sample.ssid, sample.bssid, rssi, sample.latitude, sample.longitude, sample.accuracy)
             val gap = previous?.let { seconds - it.seconds > gapSeconds } == true
             if (gap) gaps++
             if (gap || rssi == null || previous?.rssi == null) signalSegment++
@@ -64,7 +69,9 @@ object ReviewAnalysis {
         }
         val duration = ((session.ended_elapsed_ns ?: samples.lastOrNull()?.elapsed ?: session.started_elapsed_ns) - session.started_elapsed_ns) / 1e9
         return SurveyReview(session, displayed, samples.size, valid, good, weak, disconnected, located,
-            all.mapNotNull { it.rssi }.minOrNull(), duration.coerceAtLeast(0.0), gaps)
+            all.mapNotNull { it.rssi }.minOrNull(), duration.coerceAtLeast(0.0), gaps,
+            CoverageAnalysis.build(coverage, samples.mapNotNull { it.ssid }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key,
+                scanCount, config.scan_collection_enabled))
     }
 
     suspend fun load(dao: SurveyDao, id: String): SurveyReview {
@@ -76,7 +83,26 @@ object ReviewAnalysis {
             if (page.isEmpty()) break
             rows.addAll(page); after = page.last().sequence
         }
-        return build(dao.session(id), rows)
+        val session = dao.session(id)
+        val count = dao.scanCount(id)
+        require(count <= MAX_SAMPLES && dao.locationCount(id) <= MAX_SAMPLES) { "Ten pomiar jest za długi do podglądu na telefonie. Użyj eksportu na komputerze." }
+        val config = surveyJson.decodeFromString<SurveyConfig>(session.configuration_snapshot_json)
+        val locations = hashMapOf<String, LocationSample>()
+        after = 0
+        while (count > 0) {
+            val page = dao.locationPage(id, after)
+            if (page.isEmpty()) break
+            page.forEach { locations[it.id] = it }; after = page.last().sequence_no
+        }
+        val scans = mutableListOf<CoverageReading>()
+        var offset = 0L
+        while (offset < count) {
+            val page = dao.scanPage(id, offset)
+            if (page.isEmpty()) break
+            page.mapNotNullTo(scans) { CoverageAnalysis.scanReading(it, locations[it.location_id_for_seen_time], config) }
+            offset += page.size
+        }
+        return build(session, rows, scans, count.toInt())
     }
 }
 

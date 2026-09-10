@@ -7,6 +7,7 @@ import android.os.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.*
 import java.util.UUID
 
 class SurveyService : Service() {
@@ -21,6 +22,8 @@ class SurveyService : Service() {
         data object Tick : Command
         data class Fix(val sample: LocationSample) : Command
         data class Note(val text: String) : Command
+        data class Scan(val batch: ScanBatch) : Command
+        data class Context(val type: String, val payload: JsonObject) : Command
         data class Stop(val reason: String, val interrupted: Boolean = false) : Command
     }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -28,6 +31,11 @@ class SurveyService : Service() {
     private val app get() = application as SurveyApplication
     private lateinit var wifi: WifiSource
     private lateinit var location: LocationSource
+    private lateinit var scans: ScanSource
+    private lateinit var power: RecordingPower
+    private var scanTicker: Job? = null
+    private var lastFreshScan: Long? = null
+    private var lastContext: String? = null
     private var ticker: Job? = null
     private var actor: Job? = null
     private var accepting = false
@@ -36,7 +44,8 @@ class SurveyService : Service() {
     private var finishing = false
     private var warmupLocation: LocationSample? = null
 
-    override fun onCreate() { super.onCreate(); wifi = WifiSource(this); location = LocationSource(this) }
+    override fun onCreate() { super.onCreate(); wifi = WifiSource(this); location = LocationSource(this)
+        scans = ScanSource(this); power = RecordingPower(this) }
     override fun onBind(intent: Intent?) = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -51,7 +60,7 @@ class SurveyService : Service() {
                 }
             }
             STOP -> requestStop("OPERATOR_STOP")
-            NOTE -> if (accepting) scope.launch { queue.send(Command.Note(intent.getStringExtra("text").orEmpty())) }
+            NOTE -> if (accepting) scope.launch { queue.send(Command.Note(intent.getStringExtra("text").orEmpty())) } else if (!starting) stopSelf()
         }
         return START_NOT_STICKY
     }
@@ -87,9 +96,11 @@ class SurveyService : Service() {
                 configuration_snapshot_json = surveyJson.encodeToString(config))
             withContext(Dispatchers.IO) { app.repository.start(value) }
             sessionId = id; accepting = true
+            power.start()
             app.live.value = LiveStatus(sessionId = id)
             location.close()
             startLocation(id)
+            if (config.scan_collection_enabled) startScans(config)
             ticker = scope.launch {
                 while (isActive && accepting) { queue.send(Command.Tick); delay(config.connected_interval_ms) }
             }
@@ -101,19 +112,41 @@ class SurveyService : Service() {
                         locations++
                     }
                     Command.Tick -> {
+                        power.renew()
                         if (filesDir.usableSpace < config.stop_free_bytes) {
                             closeSources(); finish("LOW_STORAGE", true); break
                         }
                         val reading = wifi.read()
                         val sampleStamp = clockStamp()
                         val sample = withContext(Dispatchers.IO) { app.repository.wifi(reading, sampleStamp) }
-                        app.live.value = LiveStatus(id, sample, locations, (sampleStamp.elapsed - stamp.elapsed) / 1_000_000_000)
+                        app.live.value = app.live.value.copy(sessionId = id, sample = sample, locations = locations,
+                            durationSeconds = (sampleStamp.elapsed - stamp.elapsed) / 1_000_000_000,
+                            scanAgeSeconds = lastFreshScan?.let { (sampleStamp.elapsed - it).coerceAtLeast(0) / 1_000_000_000 })
+                        val context = "${power.interactive}:${power.fold}"
+                        if (context != lastContext) {
+                            withContext(Dispatchers.IO) { app.repository.contextEvent(clockStamp(), "DEVICE_STATE", buildJsonObject {
+                                put("interactive", power.interactive); put("fold", power.fold)
+                            }) }
+                            lastContext = context
+                        }
                         // Idempotent while subscribed; retries a failed FLP registration every ten samples.
                         if ((sample?.sequence_no ?: 0) % 10L == 0L && accepting) startLocation(id)
                         getSystemService(NotificationManager::class.java).notify(NOTIFICATION,
                             notification("Pomiar trwa · ${durationLabel(app.live.value.durationSeconds.toDouble())} · ${sample?.sequence_no ?: 0} odczytów"))
+                        if ((sample?.sequence_no ?: 0) % 5L == 0L) SurveyWidget.update(this, app.live.value)
                     }
-                    is Command.Note -> withContext(Dispatchers.IO) { app.repository.note(clockStamp(), command.text) }
+                    is Command.Scan -> {
+                        val fresh = withContext(Dispatchers.IO) { app.repository.scans(command.batch) }
+                        if (fresh > 0) {
+                            lastFreshScan = command.batch.stamp.elapsed
+                            app.live.value = app.live.value.copy(freshAps = fresh, scanAgeSeconds = 0)
+                        }
+                    }
+                    is Command.Context -> withContext(Dispatchers.IO) { app.repository.contextEvent(clockStamp(), command.type, command.payload) }
+                    is Command.Note -> {
+                        withContext(Dispatchers.IO) { app.repository.note(clockStamp(), command.text) }
+                        SurveyWidget.update(this, app.live.value, "Miejsce oznaczone ✓")
+                    }
                     is Command.Stop -> { finish(command.reason, command.interrupted); break }
                 }
             }
@@ -123,6 +156,25 @@ class SurveyService : Service() {
             closeSources()
             withContext(Dispatchers.IO) { runCatching { app.repository.stop(clockStamp(), "COLLECTOR_ERROR", true) } }
             stopSelf()
+        }
+    }
+
+    private fun startScans(config: SurveyConfig) {
+        scans.start({ batch ->
+            if (accepting && !queue.trySend(Command.Scan(batch)).isSuccess) requestStop("SCAN_QUEUE_OVERFLOW", true)
+        }, {
+            if (accepting) scope.launch { queue.send(Command.Context("SCAN_READ_ERROR", buildJsonObject { put("reason", "PERMISSION") })) }
+        })
+        scanTicker = scope.launch {
+            while (isActive && accepting) {
+                val request = clockStamp()
+                val accepted = runCatching { scans.request() }.getOrDefault(false)
+                queue.send(Command.Context("SCAN_REQUEST", buildJsonObject {
+                    put("request_elapsed_ns", request.elapsed); put("request_accepted", accepted)
+                    put("throttling_enabled", scans.throttled); put("interval_ms", config.scan_interval_ms)
+                }))
+                delay(config.scan_interval_ms)
+            }
         }
     }
 
@@ -142,7 +194,7 @@ class SurveyService : Service() {
         }
     }
 
-    private fun closeSources() { accepting = false; ticker?.cancel(); location.close() }
+    private fun closeSources() { accepting = false; ticker?.cancel(); scanTicker?.cancel(); scans.close(); location.close(); power.close() }
     private fun requestStop(reason: String, interrupted: Boolean = false) {
         if (finishing) return
         if (sessionId == null) { actor?.cancel(); stopSelf(); return }
@@ -155,14 +207,18 @@ class SurveyService : Service() {
         val ended = withContext(Dispatchers.IO) { app.repository.stop(clockStamp(), reason, interrupted) }
         wifi.close()
         app.live.value = app.live.value.copy(sessionId = null, message = "Sesja zapisana. Tworzenie ZIP…")
+        SurveyWidget.update(this, app.live.value)
         if (ended != null) withContext(Dispatchers.IO) { app.export(ended.id) }
         stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
     }
     private fun notification(text: String): Notification {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val stop = PendingIntent.getService(this, 1, Intent(this, SurveyService::class.java).setAction(STOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val note = PendingIntent.getService(this, 2, Intent(this, SurveyService::class.java).setAction(NOTE)
+            .putExtra("text", "Punkt oznaczony z powiadomienia"), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_survey).setContentTitle("Workshop WiFi Survey")
             .setContentText(text).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
+            .addAction(Notification.Action.Builder(null, "Oznacz miejsce", note).build())
             .addAction(Notification.Action.Builder(null, "Zakończ pomiar", stop).build()).build()
     }
     override fun onDestroy() {
@@ -173,6 +229,7 @@ class SurveyService : Service() {
                 app.error.value = "Nie udało się zamknąć sesji w bazie. Zwolnij miejsce i uruchom aplikację ponownie, aby odzyskać sesję."
             }
             app.live.value = app.live.value.copy(sessionId = null)
+            SurveyWidget.update(this@SurveyService, app.live.value)
             app.busy.value = false
         }
         super.onDestroy()

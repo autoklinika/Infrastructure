@@ -33,6 +33,7 @@ object SurveyExporter {
 
     suspend fun write(dao: SurveyDao, session: SurveySession, output: OutputStream) {
         require(session.status != "ACTIVE") { "Cannot export an active session" }
+        val scanEnabled = surveyJson.decodeFromString<SurveyConfig>(session.configuration_snapshot_json).scan_collection_enabled
         ZipOutputStream(output.buffered()).use { zip ->
             val hashes = linkedMapOf<String, String>()
             suspend fun entry(name: String, content: suspend (OutputStreamWriter) -> Unit) {
@@ -49,12 +50,13 @@ object SurveyExporter {
                     .forEach { (key, value) -> put(key, value) }
                 put("configuration_snapshot", surveyJson.parseToJsonElement(session.configuration_snapshot_json))
                 put("measurement_source", "CONNECTED_LINK")
-                put("collector_stage", 1)
+                put("collector_stage", if (scanEnabled) 2 else 1)
                 put("counts", buildJsonObject {
                     put("connected_wifi", dao.wifiCount(session.id)); put("locations", dao.locationCount(session.id))
                     put("located_connected_wifi", dao.locatedCount(session.id)); put("bssid_transitions", dao.transitionCount(session.id))
+                    if (scanEnabled) { put("scan_snapshots", dao.snapshotCount(session.id)); put("scan_results", dao.scanCount(session.id)) }
                 })
-                put("unimplemented_streams", JsonArray(listOf("neighbor_scans", "indoor_anchors").map(::JsonPrimitive)))
+                put("unimplemented_streams", JsonArray((if (scanEnabled) listOf("indoor_anchors") else listOf("neighbor_scans", "indoor_anchors")).map(::JsonPrimitive)))
             }
             entry("metadata.json") { it.write(metadata.toString() + "\n") }
             suspend fun <T> csv(name: String, fields: List<String>, fetch: suspend (Long) -> List<T>,
@@ -78,7 +80,22 @@ object SurveyExporter {
                 { dao.locationPage(session.id, it) }, { it.sequence_no }, { surveyJson.encodeToJsonElement(it).jsonObject })
             csv("events.csv", fields(SurveyEvent.serializer().descriptor),
                 { dao.eventPage(session.id, it) }, { it.sequence_no }, { surveyJson.encodeToJsonElement(it).jsonObject })
-            reservedHeaders.forEach { (name, header) -> entry(name) { it.write(header + "\r\n") } }
+            suspend fun <T> offsetCsv(name: String, fetch: suspend (Long) -> List<T>, encode: (T) -> JsonObject) {
+                entry(name) { writer ->
+                    val header = reservedHeaders.getValue(name)
+                    writer.write(header + "\r\n")
+                    var offset = 0L
+                    while (true) {
+                        val page = fetch(offset)
+                        if (page.isEmpty()) break
+                        page.forEach { writer.write(row(encode(it), header.split(','))) }
+                        offset += page.size
+                    }
+                }
+            }
+            offsetCsv("scan_snapshots.csv", { dao.snapshotPage(session.id, it) }, { surveyJson.encodeToJsonElement(it).jsonObject })
+            offsetCsv("scan_results.csv", { dao.scanPage(session.id, it) }, { surveyJson.encodeToJsonElement(it).jsonObject })
+            entry("indoor_anchors.csv") { it.write(reservedHeaders.getValue("indoor_anchors.csv") + "\r\n") }
             entry("track.geojson") { writer ->
                 // Raw fix points: no artificial line across gaps, no implicit accuracy filtering.
                 writer.write("{\"type\":\"FeatureCollection\",\"features\":[")

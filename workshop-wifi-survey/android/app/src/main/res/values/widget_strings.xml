@@ -1,0 +1,9 @@
+<resources>
+    <string name="widget_description">Czas pomiaru, Wi-Fi, GPS i oznaczanie miejsca na małym ekranie Flipa.</string>
+    <string name="widget_title">Pomiar Wi-Fi</string>
+    <string name="widget_ready">Gotowe</string>
+    <string name="widget_open">Rozpocznij pomiar na dużym ekranie</string>
+    <string name="widget_gps">GPS i widoczne AP</string>
+    <string name="widget_note">Oznacz miejsce</string>
+    <string name="widget_stop">Zakończ</string>
+</resources>

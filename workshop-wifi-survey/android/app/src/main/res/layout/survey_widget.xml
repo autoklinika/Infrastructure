@@ -1,0 +1,14 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
+    android:padding="16dp" android:background="@drawable/widget_background">
+    <TextView android:id="@+id/widget_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/widget_title" android:textColor="#DCEDE7" android:textSize="15sp" />
+    <TextView android:id="@+id/widget_time" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/widget_ready" android:textColor="#FFFFFF" android:textSize="32sp" android:textStyle="bold" />
+    <TextView android:id="@+id/widget_signal" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/widget_open" android:textColor="#79E1C4" android:textSize="17sp" android:textStyle="bold" />
+    <TextView android:id="@+id/widget_gps" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="@string/widget_gps" android:textColor="#DCEDE7" android:textSize="13sp" />
+    <TextView android:id="@+id/widget_aps" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#DCEDE7" android:textSize="13sp" />
+    <TextView android:id="@+id/widget_updated" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:textColor="#C5D7D1" android:textSize="11sp" />
+    <LinearLayout android:id="@+id/widget_actions" style="?android:attr/buttonBarStyle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:orientation="horizontal">
+        <Button android:id="@+id/widget_note" style="?android:attr/buttonBarButtonStyle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:minHeight="48dp" android:text="@string/widget_note" android:textSize="12sp" android:textAllCaps="false" android:textColor="#79E1C4" />
+        <Button android:id="@+id/widget_stop" style="?android:attr/buttonBarButtonStyle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/widget_stop" android:textSize="12sp" android:textAllCaps="false" android:textColor="#FFD08A" />
+    </LinearLayout>
+</LinearLayout>

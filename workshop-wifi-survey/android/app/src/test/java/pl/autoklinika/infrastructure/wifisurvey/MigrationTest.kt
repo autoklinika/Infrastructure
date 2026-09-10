@@ -18,15 +18,17 @@ import java.io.File
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = android.app.Application::class)
 class MigrationTest {
-    @Test fun migrationOneToTwoPreservesSessionAndMeasurement() {
+    @Test fun migrationOneToThreePreservesSessionAndMeasurement() = migrate(1)
+    @Test fun migrationTwoToThreePreservesSessionAndMeasurement() = migrate(2)
+    private fun migrate(from: Int) {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val schema = surveyJson.parseToJsonElement(File("schemas/pl.autoklinika.infrastructure.wifisurvey.SurveyDatabase/1.json").readText()).jsonObject["database"]!!.jsonObject
+        val schema = surveyJson.parseToJsonElement(File("schemas/pl.autoklinika.infrastructure.wifisurvey.SurveyDatabase/$from.json").readText()).jsonObject["database"]!!.jsonObject
         val entities = schema["entities"]!!.jsonArray
         // In-memory SQLite avoids Room 2.8.4 MigrationTestHelper's Windows path-name mismatch.
         // Execute the historical exported schema, run production migration SQL, then compare
         // tables, indices and foreign keys with a newly generated current Room database.
         val legacy = FrameworkSQLiteOpenHelperFactory().create(SupportSQLiteOpenHelper.Configuration.builder(context)
-            .name(null).callback(object : SupportSQLiteOpenHelper.Callback(1) {
+            .name(null).callback(object : SupportSQLiteOpenHelper.Callback(from) {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     for (entity in entities) {
                         val value = entity.jsonObject
@@ -47,7 +49,10 @@ class MigrationTest {
                 'SYNTHETIC',1,'SYNTHETIC','SYNTHETIC','14',34,'{}','ACTIVE')""")
             database.execSQL("""INSERT INTO locations (id,session_id,sequence_no,timestamp_utc,timestamp_elapsed_ns,latitude,longitude,accuracy_m,is_mock_if_available)
                 VALUES ('synthetic-location','synthetic',1,'2026-01-01T00:00:01Z',2000000000,0.0001,0.0002,5.0,0)""")
-            SurveyDatabase.MIGRATION_1_2.migrate(database)
+            if (from == 1) SurveyDatabase.MIGRATION_1_2.migrate(database)
+            SurveyDatabase.MIGRATION_2_3.migrate(database)
+            for (table in listOf("scan_snapshots", "scan_results"))
+                assertEquals(table, TableInfo.read(current.openHelper.writableDatabase, table), TableInfo.read(database, table))
             for (entity in entities) {
                 val table = entity.jsonObject["tableName"]!!.jsonPrimitive.content
                 assertEquals(table, TableInfo.read(current.openHelper.writableDatabase, table), TableInfo.read(database, table))

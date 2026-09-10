@@ -1,0 +1,15 @@
+<!doctype html><html lang="pl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src https://tile.openstreetmap.org data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<link rel="stylesheet" href="leaflet.css"><link rel="stylesheet" href="survey-map.css">
+</head><body>
+<div id="controls"><label id="networks">Sieć <select id="network" aria-label="Wybierz sieć Wi-Fi"></select></label>
+<div id="sources" class="chips"></div><div id="aps" class="chips" aria-label="Wybierz punkt dostępowy"></div></div>
+<div id="map" role="region" aria-label="Mapa pomiarów Wi-Fi OpenStreetMap"></div>
+<div id="tile-status" role="status" hidden>Podkład jest niedostępny. Sprawdź internet. Pomiary nadal są widoczne.</div>
+<div id="caption" role="status"></div>
+<div id="legend"><span><i class="good"></i>Dobry ≥ −67</span><span><i class="fair"></i>Słabszy</span><span><i class="weak"></i>Słaby &lt; −75 dBm</span></div>
+<div id="hint">Przygotowuję mapę…</div>
+<script id="survey-data" type="application/json">__SURVEY_DATA__</script>
+<script src="leaflet.js"></script><script src="survey-map.js"></script>
+</body></html>

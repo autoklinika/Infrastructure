@@ -193,7 +193,9 @@ fun ActiveScreen(live: LiveStatus, error: String?, onStop: () -> Unit, onNote: (
                 Text(if (locationOk) "Dokładność GPS: około ${sample.location_accuracy_m_at_capture!!.toInt()} m."
                     else "Pomiar Wi-Fi nadal się zapisuje. Pozycja pojawi się, gdy telefon ją ustali.", color = Muted)
                 Text("Zapisane odczyty: ${sample?.sequence_no ?: 0}", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Text(scanStatusLabel(live), style = MaterialTheme.typography.bodySmall, color = Muted)
             }
+            Text("Zapis działa również przy zgaszonym ekranie. Na Flipie dodaj widżet „Pomiar Wi-Fi” w ustawieniach ekranu zewnętrznego, aby oznaczać miejsca bez otwierania telefonu.", style = MaterialTheme.typography.bodySmall, color = Muted)
             OutlinedButton(onClick = { noteDialog = true }, enabled = live.sessionId != null && !stopping,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Dodaj notatkę o miejscu") }
             if (noteSaved) Text("Notatka dodana do pomiaru.", color = Teal)

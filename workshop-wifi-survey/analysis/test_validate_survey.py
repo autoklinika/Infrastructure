@@ -155,6 +155,65 @@ class ValidationTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             checked_private_path(PRIVATE_ROOT / "../../config/real.json")
 
+    def enable_scans(self):
+        metadata = json.loads(self.files["metadata.json"])
+        config = metadata["configuration_snapshot"]
+        config.update(scan_collection_enabled=True, scan_interval_ms=30000, max_scan_age_ms=5000)
+        metadata["configuration_snapshot_json"] = json.dumps(config)
+        metadata["collector_stage"] = 2
+        metadata["counts"].update(scan_snapshots=1, scan_results=2)
+        self.files["metadata.json"] = json.dumps(metadata).encode()
+        location = list(csv.DictReader(io.StringIO(self.files["locations.csv"].decode())))[0]
+        elapsed = int(location["timestamp_elapsed_ns"])
+        snapshot = dict(session_id=metadata["id"], snapshot_id="SYNTHETIC_SCAN",
+            request_elapsed_ns="", callback_elapsed_ns=str(elapsed + 1000000000), callback_utc="2026-01-01T00:00:03Z",
+            request_accepted="", results_updated="true", result_count="2")
+        edit_csv(self.files, "scan_snapshots.csv", lambda rows: rows.append(snapshot))
+        readings = [dict(id=f"SYNTHETIC_SCAN_RESULT_{n}", session_id=metadata["id"], snapshot_id="SYNTHETIC_SCAN",
+            source="SCAN_RESULT", ssid="SYNTHETIC_WIFI", bssid=f"02:00:00:00:00:0{n}", rssi_dbm="-65",
+            frequency_mhz="5220", band="5GHz", channel="44", channel_width="2", capabilities="[SYNTHETIC]",
+            rtt_responder="false", platform_seen_elapsed_us=str(elapsed // 1000), result_age_at_callback_ms="1000.0",
+            fresh="true", location_id_for_seen_time=location["id"], location_join_delta_ms="0.0", quality_flags="") for n in (1, 2)]
+        edit_csv(self.files, "scan_results.csv", lambda rows: rows.extend(readings))
+
+    def test_stage_two_validates_scans_at_hardware_seen_time(self):
+        self.enable_scans()
+        result = self.run_validation()
+        self.assertEqual("PASS", result["status"], result)
+        self.assertEqual(2, result["metrics"]["fresh_scan_count"])
+        self.assertEqual(2, result["metrics"]["located_scan_count"])
+
+    def test_stage_two_rejects_duplicate_as_fresh(self):
+        self.enable_scans()
+        edit_csv(self.files, "scan_results.csv", lambda rows: rows[1].update(bssid=rows[0]["bssid"]))
+        self.assert_invalid("STALE_OR_DUPLICATE_SCAN_MARKED_FRESH")
+
+    def test_stage_two_rejects_wrong_seen_age(self):
+        self.enable_scans()
+        edit_csv(self.files, "scan_results.csv", lambda rows: rows[0].update(result_age_at_callback_ms="0"))
+        self.assert_invalid("SCAN_AGE_MISMATCH")
+
+    def test_stage_two_rejects_callback_location_instead_of_seen_location(self):
+        self.enable_scans()
+        edit_csv(self.files, "scan_results.csv", lambda rows: rows[0].update(location_join_delta_ms="1000"))
+        self.assert_invalid("SCAN_LOCATION_DELTA_MISMATCH")
+
+    def test_stage_two_rejects_incomplete_snapshot(self):
+        self.enable_scans()
+        edit_csv(self.files, "scan_snapshots.csv", lambda rows: rows[0].update(result_count="99"))
+        self.assert_invalid("SCAN_RESULT_COUNT_MISMATCH")
+
+    def test_stage_two_rejects_cached_broadcast_marked_fresh(self):
+        self.enable_scans()
+        edit_csv(self.files, "scan_snapshots.csv", lambda rows: rows[0].update(results_updated="false"))
+        self.assert_invalid("STALE_OR_DUPLICATE_SCAN_MARKED_FRESH")
+
+    def test_configuration_copies_must_agree(self):
+        metadata = json.loads(self.files["metadata.json"])
+        metadata["configuration_snapshot"]["max_location_age_ms"] = 1000
+        self.files["metadata.json"] = json.dumps(metadata).encode()
+        self.assert_invalid("CONFIGURATION_SNAPSHOT_MISMATCH")
+
 
 if __name__ == "__main__":
     unittest.main()
