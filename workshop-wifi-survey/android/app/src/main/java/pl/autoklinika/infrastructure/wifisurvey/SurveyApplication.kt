@@ -20,7 +20,7 @@ class SurveyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(SurveyService.CHANNEL, "Aktywny survey", NotificationManager.IMPORTANCE_LOW))
+            NotificationChannel(SurveyService.CHANNEL, "Trwający pomiar Wi-Fi", NotificationManager.IMPORTANCE_LOW))
         repository = SurveyRepository(SurveyDatabase.open(this))
         initialization = scope.async {
             try { repository.recover(clockStamp().utc); ready.value = true }

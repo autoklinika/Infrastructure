@@ -4,8 +4,9 @@ Collector Android dla Samsung Galaxy Z Flip6, Application ID
 `pl.autoklinika.infrastructure.wifisurvey`.
 
 Zakres tego PR: **Stage 0 + Stage 1, przygotowanie do fizycznego testu**.
-Nie oznacza to jeszcze akceptacji sprzętowej MVP. Skany sąsiednich AP, mapy,
-anchory indoor i aktywne testy sieciowe pozostają poza tym etapem.
+Nie oznacza to jeszcze pełnej akceptacji sprzętowej MVP. Wersja 0.2 dodaje prosty
+polski interfejs, wykres sygnału i lokalny widok trasy GPS z zapisanych sesji/ZIP.
+Skany sąsiednich AP, heatmapy, anchory indoor i aktywne testy pozostają poza zakresem.
 
 Dokument wykonawczy: [specyfikacja v1.1](../docs/workshop-wifi-survey-android-plan.md).
 Ponieważ specyfikacja nie była jeszcze na `main`, dołączono jej niezmienioną treść
@@ -48,8 +49,11 @@ może wymagać tego samego klucza. Nie odinstalowuj aplikacji z niepobranymi ses
 
 ## Funkcjonalność
 
-- Preflight z blokadami i opisem brakujących warunków.
-- Nazwa, tryb OUTDOOR/INDOOR/MIXED, trasa, filtr SSID, notatka, interwał i wiek lokalizacji.
+- Ekran „Nowy pomiar” z prostą instrukcją usunięcia aktualnej blokady.
+- Opcjonalna nazwa i wybór „Na zewnątrz / W budynku / Tu i tu”.
+- Automatycznie ustawione 1000 ms zapisu i 2500 ms limitu wieku GPS; bez pól technicznych.
+- „Moje pomiary”: podsumowanie, interaktywny wykres sygnału i trasa GPS bez usług mapowych.
+- Otwieranie wcześniejszych ZIP przez systemowy wybór pliku, po kontroli checksum i powiązań.
 - Location foreground service uruchamiany z widocznego ekranu, bez background location.
 - Room/WAL; transakcyjny zapis każdej próbki i powiązanych eventów, kolejka maks. 64 komunikatów.
 - Około 1 Hz obserwacji bieżącego połączenia i żądania FLP 1 Hz; rzeczywisty rytm zależy od Androida.
@@ -64,7 +68,9 @@ Brak fix w INDOOR/MIXED jest ostrzeżeniem; Stage 1 zachowuje surowe dane bez an
 Po START utrata fix nigdy nie odrzuca próbek Wi-Fi. Filtr SSID również oznacza
 niezgodność flagą, zamiast usuwać pomiary. Progi są w snapshot sesji;
 `config/survey-defaults.json` dokumentuje wartości bazowe, nie jest automatycznie
-wczytywany z checkoutu przez APK. Interwał i maksymalny wiek można zmieniać w UI.
+wczytywany z checkoutu przez APK. Nowe pomiary używają tych stałych wartości.
+Starsze sesje zachowują własną konfigurację; przeglądarka respektuje zapisany limit
+wieku i jakości lokalizacji. Szczegóły: [interfejs i wykresy 0.2](docs/interface-and-review-0.2.md).
 
 ## Prywatność
 

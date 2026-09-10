@@ -5,6 +5,7 @@ import android.app.Application
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.*
@@ -16,8 +17,16 @@ class SurveyViewModel(application: Application) : AndroidViewModel(application) 
     val preflight = MutableStateFlow(Preflight())
     val previewWifi = MutableStateFlow(WifiReading())
     val exporting = MutableStateFlow(false)
+    val review = MutableStateFlow<SurveyReview?>(null)
+    val reviewLoading = MutableStateFlow(false)
+    val reviewError = MutableStateFlow<String?>(null)
+    val reviewing = MutableStateFlow(false)
+    val imported = MutableStateFlow(false)
+    private var reviewJob: Job? = null
+    private var reviewRequest = 0L
     var config = SurveyConfig()
     var mode = "OUTDOOR"
+    var previewEnabled = true
     private var exportOk = false
 
     suspend fun previewLoop() {
@@ -27,7 +36,7 @@ class SurveyViewModel(application: Application) : AndroidViewModel(application) 
         try {
             probeExport()
             while (currentCoroutineContext().isActive) {
-                if (!app.busy.value) {
+                if (!app.busy.value && previewEnabled) {
                     if (app.granted(Manifest.permission.ACCESS_FINE_LOCATION)) {
                         runCatching { wifi.start() }
                         runCatching { location.start({ latest = it.toSample("preflight") }, { latest = null }) }
@@ -53,6 +62,7 @@ class SurveyViewModel(application: Application) : AndroidViewModel(application) 
             .putExtra("route", request.route).putExtra("filter", request.filter).putExtra("notes", request.notes)
             .putExtra("config", surveyJson.encodeToString(capturedConfig))
         app.error.value = null
+        app.live.value = LiveStatus()
         app.busy.value = true
         try { app.startForegroundService(intent) }
         catch (failure: Exception) { app.busy.value = false; app.error.value = "START nieudany: ${failure.javaClass.simpleName}" }
@@ -63,6 +73,41 @@ class SurveyViewModel(application: Application) : AndroidViewModel(application) 
         if (exporting.value || app.busy.value) return
         exporting.value = true
         // Export survives Activity rotation/background; Room remains the source if the process dies.
-        app.scope.launch { try { app.export(id) } finally { exporting.value = false } }
+        app.scope.launch {
+            try {
+                app.export(id)
+                val updatedSession = runCatching { app.repository.dao.session(id) }.getOrNull()
+                withContext(Dispatchers.Main.immediate) {
+                    if (updatedSession != null && !imported.value && review.value?.session?.id == id) {
+                        review.value = review.value?.copy(session = updatedSession)
+                    }
+                }
+            } finally { exporting.value = false }
+        }
+    }
+
+    fun closeReview() {
+        reviewRequest++; reviewJob?.cancel(); reviewing.value = false; review.value = null; reviewLoading.value = false
+    }
+    fun showSession(id: String) = openReview(false) { ReviewAnalysis.load(app.repository.dao, id) }
+    fun openLog(uri: Uri) = openReview(true) {
+        app.contentResolver.openInputStream(uri)?.use { SurveyLogReader.read(it, app.cacheDir) }
+            ?: error("Nie można odczytać wybranego pliku.")
+    }
+    private fun openReview(fromFile: Boolean, load: suspend () -> SurveyReview) {
+        reviewJob?.cancel()
+        val request = ++reviewRequest
+        reviewing.value = true; imported.value = fromFile; review.value = null
+        reviewError.value = null; reviewLoading.value = true
+        reviewJob = viewModelScope.launch {
+            try { review.value = withContext(Dispatchers.IO) { load() } }
+            catch (failure: Exception) {
+                if (failure is CancellationException) throw failure
+                // Do not surface parser fragments containing private row values or implementation details.
+                reviewError.value = if (failure is IllegalArgumentException && failure.message?.let {
+                    it.startsWith("Ten pomiar") || it.startsWith("Plik jest") || it.startsWith("Ta wersja")
+                } == true) failure.message else "Nie udało się otworzyć pomiaru. Wybierz kompletny, oryginalny plik ZIP z tej aplikacji."
+            } finally { if (request == reviewRequest) reviewLoading.value = false }
+        }
     }
 }

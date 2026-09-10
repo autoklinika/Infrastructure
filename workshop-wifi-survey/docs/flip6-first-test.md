@@ -1,6 +1,8 @@
 # Pierwszy fizyczny test Samsung Galaxy Z Flip6
 
-Status: **NOT RUN — wymaga operatora i fizycznego telefonu**.
+Status pełnej próby >=5 minut: **NOT RUN — wymaga operatora i fizycznego telefonu**.
+Procedura zaktualizowana do interfejsu 0.2. Krótkie nagrania oraz podgląd wyników
+na fizycznym Flip6 zostały sprawdzone; nie zastępują pełnego testu terenowego.
 Build/unit tests/Robolectric nie zastępują tych czynności.
 
 ## 1. Przygotuj checkout i APK
@@ -38,30 +40,34 @@ Przy błędzie podpisu APK **nie odinstalowuj aplikacji**, dopóki nie pobierzes
 
 ## 3. Zgody i test blokad
 
-1. W aplikacji wybierz „Nadaj wymagane uprawnienia”. Zezwól na **dokładną**
+1. Gdy aplikacja poprosi, wybierz „Nadaj dostęp”. Zezwól na **dokładną**
    lokalizację podczas używania aplikacji, urządzenia Wi-Fi w pobliżu i powiadomienia.
 2. Włącz Wi-Fi i Location Services. Połącz telefon z badaną własną siecią.
-3. Sprawdź czytelny SSID/BSSID, gotowy foreground logging i zapis MediaStore.
+3. Sprawdź nazwę sieci i komunikat „Gotowe do pomiaru”. Pełna lista kontroli
+   znajduje się pod „Informacje o telefonie”.
 4. Zweryfikuj, że odmowa precise location, wyłączenie Wi-Fi/Location Services
    lub powiadomień blokuje START z opisem przyczyny. Przywróć wymagane warunki.
 5. Nie zmieniaj scan throttling dla Stage 1 — skany nie są uruchamiane.
 
 ## 4. Pierwsza sesja: co najmniej 5 minut
 
-1. Wyjdź na zewnątrz. Ustaw OUTDOOR, nazwę sesji, `route_profile=SITE_BASELINE_V1`,
-   connected interval 1000 ms, maksymalny wiek lokalizacji 2500 ms.
-2. Zapisz notatkę o warunkach, stan danych komórkowych i Bluetooth. VPN zostanie
-   zapisany w snapshot; w porównaniach utrzymuj te ustawienia jednakowe.
+1. Wyjdź na zewnątrz. Wybierz „Na zewnątrz”; opcjonalnie wpisz nazwę pomiaru.
+   Interwał 1000 ms i limit wieku GPS 2500 ms są ustawione automatycznie.
+2. W porównywanych sesjach zachowaj takie same ustawienia telefonu. Warunki,
+   stan danych komórkowych i Bluetooth możesz opisać notatką już podczas pomiaru.
+   Obecność VPN aplikacja zapisuje automatycznie w konfiguracji.
 3. Poczekaj na fix: wiek <=2500 ms i accuracy <=20 m (preferowane <=10 m), brak mock.
-4. Naciśnij START. Potwierdź powiadomienie FGS i rosnący licznik Wi-Fi/GPS.
+4. Naciśnij „Rozpocznij pomiar”. Sprawdź powiadomienie, czas i rosnącą liczbę odczytów.
 5. Odłącz USB. Wyłącz Phone Link, mirroring, hotspot i inne aktywne transfery.
 6. Idź co najmniej 5 minut trasą W1–W5, przejściami i placem, 0.7–1.0 m/s.
    Trzymaj rozłożony telefon, ekranem do siebie, na wysokości ok. 1.2–1.5 m.
    Ekran ma pozostać aktywny. Przejście do wnętrz może oznaczać poor accuracy/UNLOCATED.
-7. Użyj ADD NOTE przy postoju lub istotnej zmianie warunków. Zachowaj obserwację
+7. Użyj „Dodaj notatkę o miejscu” przy postoju lub istotnej zmianie warunków. Zachowaj obserwację
    momentów przejścia BSSID; sam licznik nie mierzy przerwy w ruchu sieciowym.
-8. Naciśnij STOP i poczekaj na zakończenie eksportu. Sprawdź status COMPLETED,
-   liczbę próbek, powiązania lokalizacji i nazwę ZIP w Downloads.
+8. Naciśnij „Zakończ i zobacz wynik” i poczekaj na zapis. Sprawdź wykres sygnału,
+   trasę GPS oraz liczby odczytów pod „Szczegóły pomiaru”. ZIP jest w folderze
+   Pobrane / WorkshopWiFiSurvey. Możesz go otworzyć przez „Moje pomiary” →
+   „Otwórz pomiar z pliku ZIP” i porównać wynik z podglądem z bazy.
 
 ## 5. Pobierz i oceń
 
@@ -86,8 +92,9 @@ raporty w `data/WorkshopWiFiSurvey/reports/`. Sprawdź:
 
 PASS formatu z ostrzeżeniami jakości wymaga oceny operatora. Nie oznaczaj fizycznej
 częstotliwości lokalizacji jako PASS, jeżeli system nie dostarczał fix około 1 Hz.
-Stage 1 nie generuje heatmap ani scatter RSSI; surowe punkty track.geojson służą
-do kontroli formatu. Nie rozpoczynaj Stage 2 bez zakończenia oceny collectora.
+Interfejs 0.2 pokazuje wykres RSSI i punktową trasę z zaakceptowanych lokalizacji;
+nie interpoluje heatmap. Surowe punkty track.geojson pozostają bez zmian.
+Nie rozpoczynaj Stage 2 bez zakończenia oceny collectora.
 
 ## 6. Osobne próby awarii
 

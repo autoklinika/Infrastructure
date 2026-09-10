@@ -1,5 +1,8 @@
 # Raport implementacji Stage 0 + Stage 1
 
+Raport historyczny pierwszego wydania. Aktualny interfejs, wykresy oraz wyniki
+testów wersji 0.2 opisuje [uzupełnienie](interface-and-review-0.2.md).
+
 Data: 2026-09-10. Stan: **gotowe do pierwszego fizycznego survey na Flip6**.
 Branch: `feat/workshop-wifi-survey-mvp`. Bez zmian, commitów ani merge do `main`.
 Commit końcowy i PR są podane w raporcie przekazania; ten dokument jest częścią commitu.

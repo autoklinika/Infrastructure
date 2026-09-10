@@ -8,6 +8,12 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SurveyDao {
+    @Query("""SELECT w.sequence_no AS sequence, w.timestamp_elapsed_ns AS elapsed, w.rssi_dbm AS rssi,
+        (w.network_transport_state = 'WIFI_CONNECTED') AS connected, l.latitude, l.longitude,
+        l.accuracy_m AS accuracy, w.location_age_ms AS age, l.is_mock_if_available AS mock, w.quality_flags AS flags
+        FROM connected_wifi w LEFT JOIN locations l ON w.location_id_at_capture = l.id AND w.session_id = l.session_id
+        WHERE w.session_id = :id AND w.sequence_no > :after ORDER BY w.sequence_no LIMIT 500""")
+    suspend fun reviewPage(id: String, after: Long): List<ReviewSample>
     @Insert suspend fun insertSession(value: SurveySession)
     @Update suspend fun updateSession(value: SurveySession)
     @Insert suspend fun insertLocation(value: LocationSample)

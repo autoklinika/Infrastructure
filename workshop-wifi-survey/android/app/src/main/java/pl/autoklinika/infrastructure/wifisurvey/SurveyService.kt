@@ -46,7 +46,7 @@ class SurveyService : Service() {
                     startForeground(NOTIFICATION, notification("Przygotowanie sesji…"), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
                     actor = scope.launch { begin(intent) }
                 } catch (failure: Exception) {
-                    app.error.value = "Nie udało się uruchomić foreground service: ${failure.javaClass.simpleName}"
+                    app.error.value = "Nie udało się rozpocząć zapisu. Sprawdź dostęp do lokalizacji i powiadomień aplikacji."
                     app.busy.value = false; stopSelf()
                 }
             }
@@ -111,7 +111,7 @@ class SurveyService : Service() {
                         // Idempotent while subscribed; retries a failed FLP registration every ten samples.
                         if ((sample?.sequence_no ?: 0) % 10L == 0L && accepting) startLocation(id)
                         getSystemService(NotificationManager::class.java).notify(NOTIFICATION,
-                            notification("Survey active — ${app.live.value.durationSeconds}s — ${sample?.sequence_no ?: 0} samples"))
+                            notification("Pomiar trwa · ${durationLabel(app.live.value.durationSeconds.toDouble())} · ${sample?.sequence_no ?: 0} odczytów"))
                     }
                     is Command.Note -> withContext(Dispatchers.IO) { app.repository.note(clockStamp(), command.text) }
                     is Command.Stop -> { finish(command.reason, command.interrupted); break }
@@ -119,7 +119,7 @@ class SurveyService : Service() {
             }
         } catch (failure: Exception) {
             if (failure is CancellationException) throw failure
-            app.error.value = "Rejestracja przerwana: ${failure.javaClass.simpleName}. Sprawdź Preflight; zapisane próbki pozostają w bazie."
+            app.error.value = "Pomiar został przerwany. Sprawdź gotowość telefonu. Dotychczasowe odczyty są zachowane."
             closeSources()
             withContext(Dispatchers.IO) { runCatching { app.repository.stop(clockStamp(), "COLLECTOR_ERROR", true) } }
             stopSelf()
@@ -130,15 +130,15 @@ class SurveyService : Service() {
         try {
             location.start({ fix ->
                 if (accepting && !queue.trySend(Command.Fix(fix.toSample(id))).isSuccess) {
-                    app.error.value = "Przepełnienie bufora zapisu lokalizacji — survey przerwany; sprawdź pamięć telefonu."
+                    app.error.value = "Telefon nie nadąża z zapisem. Pomiar zostanie zakończony z zachowaniem dotychczasowych danych."
                     requestStop("LOCATION_QUEUE_OVERFLOW", true)
                 }
             }, {
-                app.error.value = "Fused Location Provider nie dostarcza danych. Wi-Fi jest zapisywane jako UNLOCATED."
+                app.error.value = "Telefon nie ustalił pozycji. Odczyty Wi-Fi nadal się zapisują, chwilowo bez miejsca na trasie."
                 if (accepting) scope.launch { queue.send(Command.Note("LOCATION_PROVIDER_ERROR")) }
             })
         } catch (_: SecurityException) {
-            app.error.value = "Utracono uprawnienie lokalizacji. Wi-Fi pozostaje zapisywane jako UNLOCATED."
+            app.error.value = "Utracono dostęp do lokalizacji. Przywróć zgodę w ustawieniach aplikacji. Dotychczasowe odczyty są zachowane."
         }
     }
 
@@ -163,7 +163,7 @@ class SurveyService : Service() {
         val stop = PendingIntent.getService(this, 1, Intent(this, SurveyService::class.java).setAction(STOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_survey).setContentTitle("Workshop WiFi Survey")
             .setContentText(text).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
-            .addAction(Notification.Action.Builder(null, "STOP SURVEY", stop).build()).build()
+            .addAction(Notification.Action.Builder(null, "Zakończ pomiar", stop).build()).build()
     }
     override fun onDestroy() {
         closeSources(); wifi.close(); scope.cancel(); queue.close()
