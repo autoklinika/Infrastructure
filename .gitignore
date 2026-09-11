@@ -1,0 +1,15 @@
+# Local configuration and credentials
+.env
+.env.*
+local.properties
+*.jks
+*.keystore
+
+# Private operational measurements; never force-add these paths.
+workshop-wifi-survey/data/
+workshop-wifi-survey/.local/
+workshop-wifi-survey/reports/private/
+workshop-wifi-survey/config/*.local.*
+workshop-wifi-survey/config/*.private.*
+workshop-wifi-survey/**/survey_*.zip
+workshop-wifi-survey/**/*.survey.zip

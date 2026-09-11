@@ -1,0 +1,5 @@
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="352dp" android:minHeight="339dp"
+    android:initialLayout="@layout/survey_widget" android:previewLayout="@layout/survey_widget"
+    android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen|keyguard"
+    android:updatePeriodMillis="0" android:description="@string/widget_description" />

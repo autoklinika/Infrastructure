@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "connected_interval_ms": 1000,
+  "location_interval_ms": 1000,
+  "max_location_age_ms": 2500,
+  "accuracy_warning_m": 10.0,
+  "accuracy_exclusion_m": 20.0,
+  "min_start_free_bytes": 104857600,
+  "stop_free_bytes": 20971520,
+  "target_rssi_dbm": -67,
+  "scan_collection_enabled": true,
+  "scan_interval_ms": 30000,
+  "max_scan_age_ms": 5000,
+  "indoor_anchors_enabled": false
+}

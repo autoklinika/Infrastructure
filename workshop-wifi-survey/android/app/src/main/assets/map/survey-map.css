@@ -1,0 +1,19 @@
+html,body{height:100%;margin:0;background:#f4f7f5;color:#183b3c;font:14px system-ui,sans-serif}
+body{position:fixed;inset:0;height:auto;display:flex;flex-direction:column;overflow:hidden}#controls{padding:8px 12px 0;background:#fff;flex-shrink:0;max-height:34%;overflow:auto;box-sizing:border-box}
+#networks{display:flex;align-items:center;gap:8px;font-weight:600}select{flex:1;min-width:0;max-width:100%;border:1px solid #c5d7d1;border-radius:8px;background:white;color:#183b3c;padding:9px;font:inherit}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:7px 0}.chips:empty{display:none}
+button{flex-shrink:0;border:1px solid #c5d7d1;border-radius:18px;background:white;padding:9px 13px;font:600 13px system-ui;color:#183b3c;min-height:44px}
+button[aria-pressed=true]{background:#096b60;color:white;border-color:#096b60}
+#map{flex:1;min-height:80px;background:#e4ebe7}.leaflet-container{font-family:system-ui,sans-serif}
+#map-summary{background:#fff;flex-shrink:0;max-height:40%;overflow:auto;box-sizing:border-box;border-top:1px solid #dce7e2}
+#caption,#hint,#tile-status,#map-tip{padding:6px 12px;font-size:12px;line-height:1.4}#caption{font-weight:650}#hint{color:#526865;padding-top:0}
+#tile-status{background:#fff1d8;color:#765000}#legend{display:flex;gap:10px;flex-wrap:wrap;padding:0 12px 5px;font-size:12px}
+#legend span{display:flex;align-items:center;gap:4px}i{display:inline-block;width:9px;height:9px;border-radius:50%}.good{background:#096b60}.fair{background:#c18408}.weak{background:#b0393c}
+.unmeasured{border:1.5px solid #526865;box-sizing:border-box}#map-tip{padding-top:0;color:#526865}
+summary{padding:8px 12px;cursor:pointer;color:#096b60;font-weight:600;min-height:44px;box-sizing:border-box;display:list-item;align-content:center}
+#sources{padding:0 12px 8px}button:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #096b60;outline-offset:2px}
+.signal-badge{box-sizing:border-box;min-width:100px;width:max-content;background:#fffffff5;border:2px solid;border-radius:10px;padding:4px 7px;box-shadow:0 2px 5px #183b3c24;color:#183b3c;line-height:1.25;pointer-events:none}
+.signal-name{display:block;font-size:10px;font-weight:600}.signal-value{display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;font-size:13px}
+.signal-bars{display:inline-flex;align-items:flex-end;gap:2px;height:16px}.signal-bars span{width:4px;border-radius:1px}
+.quality-marker{pointer-events:none}.signal-tooltip.leaflet-tooltip{background:none;border:0;box-shadow:none;padding:0}.signal-tooltip.leaflet-tooltip:before{display:none}
+.leaflet-popup-content{margin:12px;line-height:1.5;max-height:210px;overflow:auto}.leaflet-control-attribution{font-size:10px;background:#ffffffed!important}.leaflet-control-scale-line{background:#ffffffe6}

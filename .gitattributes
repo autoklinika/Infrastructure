@@ -1,0 +1,13 @@
+* text=auto eol=lf
+*.kt text eol=lf
+*.kts text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.csv text eol=lf
+*.md text eol=lf
+gradlew text eol=lf
+*.bat text eol=crlf
+*.jar binary
+# Fixture checksums cover exact exported bytes (CSV CRLF, JSON/TXT LF) on every OS.
+workshop-wifi-survey/testdata/synthetic/* -text
+workshop-wifi-survey/testdata/synthetic/*.csv whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
